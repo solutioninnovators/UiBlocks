@@ -4,4 +4,4 @@ Developed by Mike Spooner (thetuningspoon) for Solution Innovators
 ## Usage
 Move the contents of the "Move to your templates folder" directory to /site/templates/ and set the alternate filename for each of your templates to main.php in the PW Admin.
 
-More documentation coming soon.
+See files for documentation. More coming soon!
