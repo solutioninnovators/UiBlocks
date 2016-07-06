@@ -6,7 +6,7 @@ class HomeUI extends UI {
 	 * Public properties are automatically sent to the view.
 	 * Public properties can be accessed by the parent UI, so this is a good way to make the UI configurable.
 	 */
-	protected $version = 1; // Update the version number of a user interface to force browsers to reload cached js & css assets
+	public $version = 1; // Update the version number of a user interface to force browsers to reload cached js & css assets
 
 	/**
 	 * This is called when the object is first instantiated by the parent UI (client code). It is a good place to set default properties for this UI and add js and css files to the $this->headScripts, $this->footScripts, and $this->styles arrays. If you create a JS or CSS file with the same name as the template, it will be automatically included. So this function can be removed if not needed.

@@ -6,7 +6,7 @@ class MarkupModularUI extends WireData implements Module
 	public static function getModuleInfo()
 	{
 		return array(
-			'title' => 'UI Framework',
+			'title' => 'MarkupModularUI',
 			'version' => 001,
 			'summary' => 'A Hierarchical Model-View-Controller (HMVC) Framework for building modular, nestable graphical user interfaces in ProcessWire. Usage: Create a /site/templates/ui folder and set all of your templates to use main.php for output.',
 			'singular' => true,

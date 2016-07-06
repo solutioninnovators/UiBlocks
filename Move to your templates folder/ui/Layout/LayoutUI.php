@@ -1,12 +1,12 @@
 <?php namespace ProcessWire;
 class LayoutUI extends UI {
 
-    public $styles = array();
-    public $headScripts = array();
-    public $footScripts = array();
-    public $browserTitle = '';
+  public $styles = array();
+  public $headScripts = array();
+  public $footScripts = array();
+  public $browserTitle = '';
 	public $pageTitle = '';
-	protected $version = 2;
+	public $version = 1;
 	public $modal = false;
 
 	protected function setup() {
