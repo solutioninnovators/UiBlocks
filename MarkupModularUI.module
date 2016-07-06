@@ -1,6 +1,6 @@
 <?php namespace ProcessWire;
 
-class MarkupHMVC extends WireData implements Module
+class MarkupModularUI extends WireData implements Module
 {
 
 	public static function getModuleInfo()
