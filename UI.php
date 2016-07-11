@@ -137,8 +137,8 @@ abstract class UI extends Wire {
 	 * Called by the client to run the user interface and output its markup
 	 */
 	public function output() {
-		$this->run();
 		$this->autoIncludeAssets();
+		$this->run();
 		$this->passWireVarsToView();
 		$this->passPublicPropertiesToView();
 		$this->passAssetsToLayout();
