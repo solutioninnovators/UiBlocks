@@ -19,7 +19,7 @@
  *
  */
 abstract class UI extends Wire {
-	
+
 	protected $view; // The view file (HTML markup/template) this user interface will use for output
 	public $version = 1; // Update the version number of a user interface to force browsers to reload cached js & css assets
 	public $path = ''; // Path to the UI directory
@@ -27,6 +27,7 @@ abstract class UI extends Wire {
 	public $headScripts = array();
 	public $footScripts = array();
 	public $styles = array();
+	public $minify = true;
 
 	function __construct() {
 		$this->path = $this->getPath();
@@ -106,7 +107,8 @@ abstract class UI extends Wire {
 		$fileUrl = $this->url . $fileName;
 
 		if(file_exists($filePath) && !in_array($fileUrl, $this->headScripts) && !in_array($fileUrl, $this->footScripts)) {
-			$this->headScripts[] = $fileUrl . $versionSuffix;
+			if(!$this->minify) $fileUrl .= $versionSuffix; // The AIOM module can't handle query strings
+			$this->headScripts[] = $fileUrl;
 		}
 
 		$fileName = "{$this->getUiName()}.css";
@@ -114,8 +116,71 @@ abstract class UI extends Wire {
 		$fileUrl = $this->url . $fileName;
 
 		if(file_exists($filePath) && !in_array($fileUrl, $this->styles)) {
-			$this->styles[] = $fileUrl . $versionSuffix;
+			if(!$this->minify) $fileUrl .= $versionSuffix; // The AIOM module can't handle query strings
+			$this->styles[] = $fileUrl;
 		}
+	}
+
+	/**
+	 * Handles minification of an arbitrary array of js or css assets through the AIOM (All In One Minify) module
+	 * @param Array $assets to be minified
+	 * @param String $type 'js' | 'css'
+	 */
+ 	protected function minifyAssets($assets, $type) {
+
+		$output = array();
+		$count = count($assets);
+
+		if (!$count) return $assets;
+
+		// Remove templates path from beginning of file name, since AIOM expects a templates-relative path
+		foreach($assets as $key => $val)
+			$assets[$key] = str_replace($this->config->urls->templates, '', $val);
+
+		switch($type) {
+			case 'js':
+				$minifiedPath = \AIOM::JS($assets);
+				break;
+
+			case 'css':
+				$minifiedPath = \AIOM::CSS($assets);
+				break;
+
+			default:
+				$minifiedPath = '';
+		}
+
+		$output[] = $minifiedPath;
+
+		return $output;
+
+	}
+
+	/**
+	 * @todo: for each path in $this->headScripts, if starts with http:// or https://, add to $this->layout->headScripts directly
+	 */
+	protected function getExternalAssets($array, $location) {
+		$output = array();
+
+		foreach ( $array as $key => $val ) {
+
+			if ( ! in_array( $location, array('headScripts', 'footScripts', 'styles') ) )
+				return;
+
+
+			if (
+				strpos( $val, 'http://'  ) !== false ||
+				strpos( $val, 'https://' ) !== false
+			) {
+				if ( gettype( $val ) === 'string' )
+					$output[] = $val;
+			}
+
+
+		}
+
+		return $output;
+
 	}
 
 	/**
@@ -125,7 +190,27 @@ abstract class UI extends Wire {
 	protected function passAssetsToLayout() {
 		$this->layout->headScripts = array_unique(array_merge($this->layout->headScripts, $this->headScripts));
 		$this->layout->footScripts = array_unique(array_merge($this->layout->footScripts, $this->footScripts));
-		$this->layout->styles = array_unique(array_merge($this->layout->styles, $this->styles));
+		$this->layout->styles      = array_unique(array_merge($this->layout->styles,      $this->styles));
+	}
+
+	protected function minify() {
+		// Separate out the external assets so we can include them separately (they cannot be minified)
+		$headScriptsExternal = $this->getExternalAssets( $this->headScripts, 'headScripts' );
+		$footScriptsExternal = $this->getExternalAssets( $this->footScripts, 'footScripts' );
+		$stylesExternal      = $this->getExternalAssets( $this->styles,      'styles'      );
+
+		$headScriptsToMin = array_diff($this->headScripts, $headScriptsExternal);
+		$footScriptsToMin = array_diff($this->footScripts, $footScriptsExternal);
+		$stylesToMin = array_diff($this->styles, $stylesExternal);
+
+		$headScriptsMin = $this->minifyAssets( $headScriptsToMin, 'js'  );
+		$footScriptsMin = $this->minifyAssets( $footScriptsToMin, 'js'  );
+		$stylesMin      = $this->minifyAssets( $stylesToMin,      'css' );
+
+		// Update the asset arrays
+		$this->headScripts = array_merge($headScriptsExternal, $headScriptsMin);
+		$this->footScripts = array_merge($footScriptsExternal, $footScriptsMin);
+		$this->styles = array_merge($stylesExternal, $stylesMin);
 	}
 
 	/**
@@ -138,12 +223,13 @@ abstract class UI extends Wire {
 	 */
 	public function output() {
 		$this->autoIncludeAssets();
+		if($this->minify && $this->modules->isInstalled("AllInOneMinify")) $this->minify();
+		$this->passAssetsToLayout();
 		$this->run();
 		$this->passWireVarsToView();
 		$this->passPublicPropertiesToView();
-		$this->passAssetsToLayout();
 
 		return $this->view->render();
 	}
-	
+
 }
