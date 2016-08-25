@@ -1,7 +1,7 @@
 <?php namespace ProcessWire;
 class BasicPageUI extends UI {
 
-	protected $version = 1;
+	public $version = 1;
 
 	protected function setup() {}
 
