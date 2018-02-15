@@ -1,14 +1,17 @@
 <?php namespace ProcessWire;
 
-class MarkupModularUI extends WireData implements Module
+class UiBlocks extends WireData implements Module
 {
+	public $headScripts = array();
+	public $footScripts = array();
+	public $styles = array();
 
 	public static function getModuleInfo()
 	{
 		return array(
-			'title' => 'Modular UI Framework',
-			'version' => 001,
-			'summary' => 'A Hierarchical Model-View-Controller (HMVC) Framework for building modular, nestable graphical user interfaces in ProcessWire. Usage: Create a /site/templates/ui folder and set all of your templates to use main.php for output.',
+			'title' => 'UI Blocks',
+			'version' => 002,
+			'summary' => 'A Hierarchical Model-View-Controller (HMVC) Framework for building modular, nestable graphical user interfaces in ProcessWire.',
 			'singular' => true,
 			'autoload' => true,
 			'installs' => array(),
@@ -19,21 +22,119 @@ class MarkupModularUI extends WireData implements Module
 
 	public function __construct() {}
 
-	public function init() {}
+	public function init() {
 
-	public function ready() {
-		if($this->page->template == 'admin') return;
+		/**
+		 * $input->shouldLoad($uiId)
+		 *
+		 * Use the following if statement around any code in your controllers that you do not want to execute if this is an ajax request and the given $uiId was not requested in the query string.
+		 *
+		 * if($input->shouldLoad('myBlockId')) {
+		 * 		$block = new MyBlockUI();
+		 * }
+		 *
+		 */
+		$this->addHook('WireInput::shouldLoad', function($e) {
+			$uiId = $e->arguments[0];
+			$input = $e->object;
+
+			if(!$input->ajax || ($input->ajax && $input->ui === $uiId))
+				$e->return = true;
+			else $e->return = false;
+		});
+
+		// Autoload model classes from the /site/templates/model/ folder when called
+		spl_autoload_register(function($class) {
+			$nameParts = explode('\\', $class);
+			$className = array_pop($nameParts); // Get the class name without the namespace
+			$file = wire('config')->paths->templates . "model/$className.php";
+			if(file_exists($file)) require_once($file);
+		});
+	}
+
+	public function ready()
+	{
+		// Include hooks.php file from the templates/model folder
+		//$hooksFile = $this->config->paths->templates . "model/hooks.php";
+		//if(file_exists($hooksFile)) include($hooksFile);
+
+		if ($this->page->template == 'admin') return;
+
+		// If this is an ajax request, close the session so that it doesn't prevent other ajax requests from being served simultaneously. Note that this means we cannot set any session variables during an ajax request.
+		//if($this->config->ajax) $this->session->close();
 
 		include(dirname(__FILE__) . '/UI.php'); // Load UI base class
+		// $this->headScripts[] = substr(dirname(__FILE__), strlen($_SERVER["DOCUMENT_ROOT"])) . '/UI.js'; // Include JS file with helpful functions - Can't do this because jquery isn't loaded yet
 
-		// Autoload UI subclasses when they're called
+		// Autoload UI subclasses from the /site/templates/ui/ folder when called
 		spl_autoload_register(function ($class) {
 			$nameParts = explode('\\', $class);
 			$className = array_pop($nameParts); // Get the class name without the namespace
-			$uiName = substr($className, 0, -2); // Remove "UI" from the class name to get the name of the user interface
-			$file = wire('config')->paths->templates . "ui/$uiName/$className.php";
-			if(is_file($file)) include $file;
+			//$uiName = substr($className, 0, -2); // Remove "UI" from the class name to get the name of the user interface
+
+			$baseFolder = wire('config')->paths->templates . "ui";
+
+			$dirLevels = '';
+			$fileFound = false;
+
+			// @todo: Check efficiency of this method
+			while(!$fileFound) {
+				$dirLevels .= '/*';
+				$fileMatches = glob($baseFolder . $dirLevels . '/' . $className . '.php', GLOB_NOSORT);
+				if(count($fileMatches)) {
+					$fileFound = true;
+					require_once($fileMatches[0]);
+				}
+				else { // If there are no items at this level at all, stop looking.
+					if(!count(glob($baseFolder . $dirLevels . '/', GLOB_NOSORT))) break;
+				}
+			}
 		});
+
+		/**
+		 * Render a UI block independently with AJAX. Specifying a UI by its class name (without the "UI" suffix) will bypass the normal controller execution and construct the UI independently before anything else. If doing so, you must provide it with all necessary configuration options via post or get since none will be provided by any of the parent controllers normally executed on the page load. This is a less convenient, but more efficient way to perform an AJAX call if you have a particularly complex page.
+		 *
+		 * In order to use this feature, your UI must have the property $allowAjaxConstruct = true.
+		 * This feature has additional security implications since it allows a UI to be loaded on any page. Be sure that you have permissions locked down at the data level!
+		 *
+		 */
+		if($this->input->ajax && $this->input->ui && class_exists('\\ProcessWire\\' . $this->input->ui . 'UI')) {
+			$className = '\\ProcessWire\\' . $this->input->ui . 'UI';
+			$ui = new $className();
+			if($ui->allowAjaxConstruct) {
+				$ui->output();
+			} else {
+				die("Ajax construct not allowed for {$this->input->ui}UI.");
+			}
+		}
+	}
+
+	/**
+	 * @return Handy functions for outputting assets in your markup
+	 */
+
+	public function headScripts() {
+		$out = '';
+		foreach($this->headScripts as $file) {
+			$out .= "<script src=\"$file\"></script> \r\n";
+		}
+		return $out;
+	}
+
+	public function footScripts() {
+		$out = '';
+		foreach($this->footScripts as $file) {
+			$out .= "<script src=\"$file\"></script> \r\n";
+		}
+		return $out;
+	}
+
+	public function styles() {
+		$out = '';
+		foreach($this->styles as $file) {
+			$out .= "<link rel=\"stylesheet\" href=\"$file\" /> \r\n";
+		}
+		return $out;
 	}
 
 	public function install() {}
