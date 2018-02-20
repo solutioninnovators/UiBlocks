@@ -10,7 +10,7 @@ class UiBlocks extends WireData implements Module
 	{
 		return array(
 			'title' => 'UI Blocks',
-			'version' => 002,
+			'version' => 004,
 			'summary' => 'A Hierarchical Model-View-Controller (HMVC) Framework for building modular, nestable graphical user interfaces in ProcessWire.',
 			'singular' => true,
 			'autoload' => true,
@@ -44,12 +44,7 @@ class UiBlocks extends WireData implements Module
 		});
 
 		// Autoload model classes from the /site/templates/model/ folder when called
-		spl_autoload_register(function($class) {
-			$nameParts = explode('\\', $class);
-			$className = array_pop($nameParts); // Get the class name without the namespace
-			$file = wire('config')->paths->templates . "model/$className.php";
-			if(file_exists($file)) require_once($file);
-		});
+		$this->wire('classLoader')->addNamespace('ProcessWire', wire('config')->paths->templates . "model/");
 	}
 
 	public function ready()
@@ -58,35 +53,35 @@ class UiBlocks extends WireData implements Module
 		//$hooksFile = $this->config->paths->templates . "model/hooks.php";
 		//if(file_exists($hooksFile)) include($hooksFile);
 
-		if ($this->page->template == 'admin') return;
+		if($this->page->template == 'admin') return;
 
 		// If this is an ajax request, close the session so that it doesn't prevent other ajax requests from being served simultaneously. Note that this means we cannot set any session variables during an ajax request.
 		//if($this->config->ajax) $this->session->close();
 
-		include(dirname(__FILE__) . '/UI.php'); // Load UI base class
+		require(dirname(__FILE__) . '/UI.php'); // Load UI base class
 		// $this->headScripts[] = substr(dirname(__FILE__), strlen($_SERVER["DOCUMENT_ROOT"])) . '/UI.js'; // Include JS file with helpful functions - Can't do this because jquery isn't loaded yet
 
 		// Autoload UI subclasses from the /site/templates/ui/ folder when called
 		spl_autoload_register(function ($class) {
-			$nameParts = explode('\\', $class);
-			$className = array_pop($nameParts); // Get the class name without the namespace
-			//$uiName = substr($className, 0, -2); // Remove "UI" from the class name to get the name of the user interface
+			if(substr($class, -2) === 'UI') { // Class must end with 'UI' for this autoloader to be relevant
 
-			$baseFolder = wire('config')->paths->templates . "ui";
+				$nameParts = explode('\\', $class);
+				$className = array_pop($nameParts); // Get the class name without the namespace
 
-			$dirLevels = '';
-			$fileFound = false;
+				$baseFolder = wire('config')->paths->templates . "ui";
 
-			// @todo: Check efficiency of this method
-			while(!$fileFound) {
-				$dirLevels .= '/*';
-				$fileMatches = glob($baseFolder . $dirLevels . '/' . $className . '.php', GLOB_NOSORT);
-				if(count($fileMatches)) {
-					$fileFound = true;
-					require_once($fileMatches[0]);
-				}
-				else { // If there are no items at this level at all, stop looking.
-					if(!count(glob($baseFolder . $dirLevels . '/', GLOB_NOSORT))) break;
+				$dirLevels = '';
+				$fileFound = false;
+
+				while (!$fileFound) {
+					$dirLevels .= '/*';
+					$fileMatches = glob($baseFolder . $dirLevels . '/' . $className . '.php', GLOB_NOSORT);
+					if (count($fileMatches)) {
+						$fileFound = true;
+						require($fileMatches[0]);
+					} else { // If there are no items at this level at all, stop looking.
+						if (!count(glob($baseFolder . $dirLevels . '/', GLOB_NOSORT))) break;
+					}
 				}
 			}
 		});
