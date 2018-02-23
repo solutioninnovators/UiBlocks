@@ -144,16 +144,6 @@ abstract class UI extends Wire {
 	}
 
 	/**
-	 * Passes all ProcessWire API variables to the view for convenience
-	 */
-	protected function passWireVarsToView() {
-		$wireVars = $this->wire();
-        $this->view->set('wire', $wireVars);
-        foreach($wireVars as $key => $value)
-			$this->view->set($key, $value);
-	}
-
-	/**
 	 * Passes all public properties of the controller to the view for convenience
 	 */
 	protected function passPublicPropertiesToView() {
@@ -332,7 +322,6 @@ abstract class UI extends Wire {
 	 */
 	protected function renderView() {
 		$this->view->ui = $this; // Pass the UI object to the view
-		$this->passWireVarsToView();
 		$this->passPublicPropertiesToView();
 
 		$output = '';
