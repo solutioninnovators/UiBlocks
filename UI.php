@@ -26,7 +26,7 @@ abstract class UI extends Wire {
  	public $version; // Update the version number of a user interface to force browsers to reload cached js & css assets
 	public $path = ''; // Path to the UI directory
 	public $url = ''; // URL to the UI directory
-	public $uiName = '';
+	public $uiName;
 	public $headScripts = array();
 	public $footScripts = array();
 	public $styles = array();
@@ -34,9 +34,14 @@ abstract class UI extends Wire {
 	public $wrapper = true; // Enable/disable the header and footer markup surrounding the block
 	public $classes = ''; // Classes to add to the wrapper
 	public $debug = null; // Allows AJAX data to be output even if $config->ajax is false. May be used to switch on other debug data as needed. If not set, the value from PW's global $config->debug will be used
-	public $allowAjaxConstruct = false; // Allows the UI to be constructed by an ajax call on any page before any other controllers are executed. See line 60 of UiBlocks-master for more information
+	public $allowAjaxConstruct = false; // Allows the UI to be constructed by an ajax call on any page before any other controllers are executed. See UiBlocks.module for more information
+	public $uiPath;
+	public $depth;
+	protected $uiBlocks;
 
 	function __construct(array $options = null) {
+		$this->uiBlocks = $this->wire('modules')->UiBlocks;
+
 		// Copy values from the options array to public properties
 		if($options) {
 			foreach($options as $key => $val) {
@@ -60,22 +65,6 @@ abstract class UI extends Wire {
 		if($this->minify && $this->modules->isInstalled("AllInOneMinify")) $this->minify();
 		$this->passAssets();
 	}
-
-
-	/*public function addHeadScript($file) {
-		$this->headScripts[] = $file;
-		$this->modules->UiBlocks->headScripts[] = $file;
-	}
-
-	public function addFootScript($file) {
-		$this->footScripts[] = $file;
-		$this->modules->UiBlocks->footScripts[] = $file;
-	}
-
-	public function addStyle($file) {
-		$this->styles[] = $file;
-		$this->modules->UiBlocks->styles[] = $file;
-	}*/
 
 	/**
 	 * Factory for building UI objects. This is an alternative to using "new" directly. Allows for more compact code.
@@ -288,9 +277,10 @@ abstract class UI extends Wire {
 	}
 
 	/**
-	 * Child classes put their code in here. Called when the interface is output().
+	 * Child classes put their code in here. This is the main method, called when the UI block is rendered.
 	 */
 	protected function run() {}
+
 
 	/**
 	 * Called after the view is rendered. Child classes can use this to execute any controller logic post-view.
@@ -305,8 +295,9 @@ abstract class UI extends Wire {
 		$id = $this->sanitizer->entities($this->id);
 		$uiId = empty($id) ? '' : "ui_$id";
 		$htmlId = empty($id) ? '' : "id='ui_$id'";
+		$path = implode('.', $this->uiPath);
 
-		return "<div $htmlId class='ui ui_$name $uiId {$this->sanitizer->entities($this->classes)}' data-ui-name='$name' data-ui-id='$id'>";
+		return "<div $htmlId class='ui ui_$name $uiId {$this->sanitizer->entities($this->classes)}' data-ui-name='$name' data-ui-id='$id' data-ui-path='$path'>";
 	}
 
 	/**
@@ -334,35 +325,62 @@ abstract class UI extends Wire {
 	/**
 	 * Called by the client to run the user interface controller logic and output its markup (or ajax array, if this is an ajax call)
 	 */
-	public function output() {
+	public function render() {
 		if($this->debug === null) $this->debug = $this->config->debug; // If debug mode is not set, use PW's global debug setting
 
-		if($this->input->ajax && ($this->config->ajax || $this->debug === true) && ($this->input->ui == $this->id || $this->input->ui == $this->getUIName()) && method_exists($this, 'ajax_' . $this->input->ajax)) {
-			$method = 'ajax_' . $this->input->ajax;
-			$this->$method();
-			$this->outputAjaxData();
-		}
-		else { // Render the view
-			$this->run();
-			$output = $this->renderView();
-			$this->end();
+		$this->uiPath = $this->uiBlocks->currentUiPath;
+		$this->uiPath[] = $this->id ?: $this->getUiName();
+		$this->depth = count($this->uiPath);
+		$this->uiBlocks->currentUiPath = $this->uiPath;
 
-			return $output;
+		if($this->uiBlocks->checkPath && ($this->requestedByAjax() && !$this->isInAjaxPath())) {
+			//echo "skipped {$this->id} at depth {$this->depth} | ";
+			array_pop($this->uiBlocks->currentUiPath);
+			return; // Do not run this block if this is an ajax request and the block is not in the ajax path
+		}
+		else {
+			if($this->requestedByAjax() && $this->isTargetBlock()) {
+				if($this->uiBlocks->checkPath && !$this->isInAjaxPath()) {
+					throw new WireException('Invalid UI path.');
+				}
+
+				$this->uiBlocks->checkPath = false; // Since we hit the target block & method, blocks we render from here should not have their paths checked
+
+				$method = 'ajax_' . $this->input->ajax;
+
+				if(!method_exists($this, $method)) {
+					throw new WireException("The method ajax_{$this->input->ajax} does not exist on the requested UI Block.");
+				}
+				else {
+					$this->$method();
+					$this->outputAjax();
+				}
+			}
+			else { // Render the view
+				//echo "rendered {$this->id} at depth {$this->depth} | ";
+				$this->run();
+				$output = $this->renderView();
+				$this->end();
+
+				array_pop($this->uiBlocks->currentUiPath);
+
+				return $output;
+			}
 		}
 	}
 
 	/**
-	 * Alias for output() @todo: rename output() to run(), renderView() to output(), point this alias to output(), and rename run() to main()?
+	 * Alias for render()
+	 * @deprecated
 	 */
-	public function render() {
-		return $this->output();
+	public function output() {
+		return $this->render();
 	}
 
 	/**
 	 * Directly outputs the UI's data array in json format and halts further program execution (Used for AJAX calls)
-	 * @todo: rename to outputAjax()
 	 */
-	protected function outputAjaxData() {
+	protected function outputAjax() {
 		header('Content-Type: application/json');
 		echo json_encode($this->ajax); exit;
 	}
@@ -374,6 +392,40 @@ abstract class UI extends Wire {
 	protected function ajax_reload() {
 		$this->run();
 		$this->ajax['view'] = $this->renderView();
+	}
+
+	/**
+	 * Was this an ajax request?
+	 * If debug mode is off and the url is accessed directly, this will return false so that the result of an ajax request will not be shown in browser
+	 * @return bool
+	 */
+	protected function requestedByAjax() {
+		return $this->input->ajax && ($this->config->ajax || $this->debug === true);
+	}
+
+	/**
+	 * For ajax requests, checks whether this block is in the UI path that was requested (?ajax=methodToExecute&ui=block1.block2.block3...)
+	 * This allows us to avoid executing blocks that are not relevant to the ajax request
+	 * @return bool
+	 */
+	protected function isInAjaxPath() {
+		$uiRequestedAtCurrentDepth = $this->uiBlocks->uiRequestedAtCurrentDepth();
+		if(!$uiRequestedAtCurrentDepth) return false;
+
+		if($this->id === $uiRequestedAtCurrentDepth || (!$this->id && $this->getUiName() === $uiRequestedAtCurrentDepth)) {
+			return true;
+		}
+		else {
+			return false;
+		}
+	}
+
+	/**
+	 * For ajax requests, checks if this block is the target of the request (the final block in the path with the method we are executing)
+	 * @return bool
+	 */
+	protected function isTargetBlock() {
+		return count(explode('.', $this->input->ui)) === $this->depth;
 	}
 
 }

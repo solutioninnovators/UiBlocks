@@ -5,12 +5,14 @@ class UiBlocks extends WireData implements Module
 	public $headScripts = array();
 	public $footScripts = array();
 	public $styles = array();
+	public $currentUiPath = []; // Stores the path to the UI block that is currently executing
+	public $checkPath = true; // We switch this off once we hit the target UI so that the ajax method we hit can still render additional sub-blocks
 
 	public static function getModuleInfo()
 	{
 		return array(
 			'title' => 'UI Blocks',
-			'version' => 004,
+			'version' => 010,
 			'summary' => 'A Hierarchical Model-View-Controller (HMVC) Framework for building modular, nestable graphical user interfaces in ProcessWire.',
 			'singular' => true,
 			'autoload' => true,
@@ -27,7 +29,7 @@ class UiBlocks extends WireData implements Module
 		/**
 		 * $input->shouldLoad($uiId)
 		 *
-		 * Use the following if statement around any code in your controllers that you do not want to execute if this is an ajax request and the given $uiId was not requested in the query string.
+		 * Use the following if statement around any code in your controllers that you do not want to execute if this is an ajax request and the given UI was not requested.
 		 *
 		 * if($input->shouldLoad('myBlockId')) {
 		 * 		$block = new MyBlockUI();
@@ -38,13 +40,33 @@ class UiBlocks extends WireData implements Module
 			$uiId = $e->arguments[0];
 			$input = $e->object;
 
-			if(!$input->ajax || ($input->ajax && $input->ui === $uiId))
+			if(!$input->ajax || !$this->checkPath) { // If not an ajax request or we don't need to check the path, return true
 				$e->return = true;
-			else $e->return = false;
+			}
+			elseif($this->uiRequestedAtCurrentDepth() && $this->uiRequestedAtCurrentDepth() === $uiId) { // UI matches the UI requested at the current depth
+				$e->return = true;
+			}
+			else {
+				$e->return = false;
+			}
+			$e->return = true;
 		});
 
 		// Autoload model classes from the /site/templates/model/ folder when called
 		$this->wire('classLoader')->addNamespace('ProcessWire', wire('config')->paths->templates . "model/");
+	}
+
+	/**
+	 * For ajax requests
+	 * @return string|false ID of the UI Block that has been requested at the current depth/level, or false if no block was requested at this level
+	 */
+	public function uiRequestedAtCurrentDepth() {
+		$depth = count($this->currentUiPath);
+		$ajaxPath = explode('.', $this->input->ui);
+
+		if(count($ajaxPath) < $depth) return false;
+
+		return $ajaxPath[$depth - 1];
 	}
 
 	public function ready()
@@ -59,8 +81,7 @@ class UiBlocks extends WireData implements Module
 		//if($this->config->ajax) $this->session->close();
 
 		require(dirname(__FILE__) . '/UI.php'); // Load UI base class
-		// $this->headScripts[] = substr(dirname(__FILE__), strlen($_SERVER["DOCUMENT_ROOT"])) . '/UI.js'; // Include JS file with helpful functions - Can't do this because jquery isn't loaded yet
-
+		
 		// Autoload UI subclasses from the /site/templates/ui/ folder when called
 		spl_autoload_register(function ($class) {
 			if(substr($class, -2) === 'UI') { // Class must end with 'UI' for this autoloader to be relevant
@@ -85,23 +106,6 @@ class UiBlocks extends WireData implements Module
 				}
 			}
 		});
-
-		/**
-		 * Render a UI block independently with AJAX. Specifying a UI by its class name (without the "UI" suffix) will bypass the normal controller execution and construct the UI independently before anything else. If doing so, you must provide it with all necessary configuration options via post or get since none will be provided by any of the parent controllers normally executed on the page load. This is a less convenient, but more efficient way to perform an AJAX call if you have a particularly complex page.
-		 *
-		 * In order to use this feature, your UI must have the property $allowAjaxConstruct = true.
-		 * This feature has additional security implications since it allows a UI to be loaded on any page. Be sure that you have permissions locked down at the data level!
-		 *
-		 */
-		if($this->input->ajax && $this->input->ui && class_exists('\\ProcessWire\\' . $this->input->ui . 'UI')) {
-			$className = '\\ProcessWire\\' . $this->input->ui . 'UI';
-			$ui = new $className();
-			if($ui->allowAjaxConstruct) {
-				$ui->output();
-			} else {
-				die("Ajax construct not allowed for {$this->input->ui}UI.");
-			}
-		}
 	}
 
 	/**
