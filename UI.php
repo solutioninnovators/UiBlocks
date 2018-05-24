@@ -34,7 +34,6 @@ abstract class UI extends Wire {
 	public $wrapper = true; // Enable/disable the header and footer markup surrounding the block
 	public $classes = ''; // Classes to add to the wrapper
 	public $debug = null; // Allows AJAX data to be output even if $config->ajax is false. May be used to switch on other debug data as needed. If not set, the value from PW's global $config->debug will be used
-	public $allowAjaxConstruct = false; // Allows the UI to be constructed by an ajax call on any page before any other controllers are executed. See UiBlocks.module for more information
 	public $uiPath;
 	public $depth;
 	protected $uiBlocks;
@@ -294,10 +293,16 @@ abstract class UI extends Wire {
 		$name = $this->getUiName();
 		$id = $this->sanitizer->entities($this->id);
 		$uiId = empty($id) ? '' : "ui_$id";
-		$htmlId = empty($id) ? '' : "id='ui_$id'";
+		//$htmlId = empty($id) ? '' : "id='ui_$id'";
 		$path = implode('.', $this->uiPath);
 
-		return "<div $htmlId class='ui ui_$name $uiId {$this->sanitizer->entities($this->classes)}' data-ui-name='$name' data-ui-id='$id' data-ui-path='$path'>";
+		$url = '';
+		if($this->uiBlocks->ajaxRequestUrl !== null && $this->isTargetBlock()) {
+			$ajaxRequestUrl = $this->sanitizer->entities($this->uiBlocks->ajaxRequestUrl);
+			$url = "data-ui-url='$ajaxRequestUrl'";
+		}
+
+		return "<div class='ui ui_$name $uiId {$this->sanitizer->entities($this->classes)}' data-ui-name='$name' data-ui-id='$id' data-ui-path='$path' $url>";
 	}
 
 	/**
