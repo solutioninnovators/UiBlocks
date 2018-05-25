@@ -293,7 +293,7 @@ abstract class UI extends Wire {
 		$name = $this->getUiName();
 		$id = $this->sanitizer->entities($this->id);
 		$uiId = empty($id) ? '' : "ui_$id";
-		//$htmlId = empty($id) ? '' : "id='ui_$id'";
+		$htmlId = empty($id) ? '' : "id='ui_$id'";
 		$path = implode('.', $this->uiPath);
 
 		$url = '';
@@ -302,7 +302,7 @@ abstract class UI extends Wire {
 			$url = "data-ui-url='$ajaxRequestUrl'";
 		}
 
-		return "<div class='ui ui_$name $uiId {$this->sanitizer->entities($this->classes)}' data-ui-name='$name' data-ui-id='$id' data-ui-path='$path' $url>";
+		return "<div $htmlId class='ui ui_$name $uiId {$this->sanitizer->entities($this->classes)}' data-ui-name='$name' data-ui-id='$id' data-ui-path='$path' $url>";
 	}
 
 	/**
