@@ -16,7 +16,15 @@ $(function() {
      */
 	$('body').on('reload', '.ui', function(e, extraQueryParams, url) {
 		e.stopPropagation(); // Only call for the element that 'reload' was called on - do not bubble up to other .ui elements
-		if(!extraQueryParams) extraQueryParams = {};
+		if(!extraQueryParams) extraQueryParams = '';
+
+		if(typeof extraQueryParams === 'object') {
+			extraQueryParams = $.param(extraQueryParams);
+		}
+
+		if(extraQueryParams) {
+			extraQueryParams = "&" + extraQueryParams;
+		}
 
 		var $ui = $(this); // Just the element that 'reload' was called on
 		// @todo: store and make sure the id gets added back to the reloaded ui if it doesn't exist?
@@ -26,7 +34,7 @@ $(function() {
             type: 'get',
 			url: url,
             dataType: 'json',
-            data: $.extend({ui: $ui.attr('data-ui-path'), ajax: 'reload'}, extraQueryParams),
+            data: "ui=" + $ui.attr('data-ui-path') + "&ajax=reload" + extraQueryParams,
             success: function(data) {
                 // Update view
                 var $newView = $(data.view);
