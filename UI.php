@@ -39,7 +39,7 @@ abstract class UI extends Wire {
 	protected $uiBlocks;
 
 	function __construct(array $options = null) {
-		$this->uiBlocks = $this->wire('modules')->UiBlocks;
+		$this->uiBlocks = $this->wire('modules')->get('UiBlocks');
 
 		// Copy values from the options array to public properties
 		if($options) {
@@ -61,7 +61,11 @@ abstract class UI extends Wire {
 		$this->setup();
 
 		$this->autoIncludeAssets();
-		if($this->minify && $this->modules->isInstalled("AllInOneMinify")) $this->minify();
+
+		if($this->minify && ($this->uiBlocks->proCache || $this->uiBlocks->aiom)) {
+			$this->minify();
+		}
+
 		$this->passAssets();
 	}
 
@@ -178,37 +182,47 @@ abstract class UI extends Wire {
 		}
 
 		if($exists) {
-			if(!$this->minify || !$this->modules->isInstalled("AllInOneMinify") && $this->version) {
+			// If minifying, don't include the version query string for cache busting (the cache module will handle that)
+			if($this->version && (!$this->minify || (!$this->uiBlocks->proCache && !$this->uiBlocks->aiom))) {
 				$versionSuffix = $this->version ? "?v={$this->version}" : '';
-				$fileUrl .= $versionSuffix; // The AIOM module can't handle query strings
+				$fileUrl .= $versionSuffix;
 			}
 			$this->$destinationArray[] = $fileUrl;
 		}
 	}
 
 	/**
-	 * Handles minification of an arbitrary array of js or css assets through the AIOM (All In One Minify) module
+	 * Handles minification of an arbitrary array of js or css assets through the ProCache or AIOM (All In One Minify) module
 	 * @param Array $assets to be minified
 	 * @param String $type 'js' | 'css'
 	 */
  	protected function minifyAssets($assets, $type) {
-
 		$output = array();
 		$count = count($assets);
 
 		if (!$count) return $assets;
 
-		// Remove templates path from beginning of file name, since AIOM expects a templates-relative path
+		// Remove templates path from beginning of file name, since ProCache and AIOM expects a templates-relative path
 		foreach($assets as $key => $val)
 			$assets[$key] = str_replace($this->config->urls->templates, '', $val);
 
 		switch($type) {
 			case 'js':
-				$minifiedPath = \AIOM::JS($assets);
+				if($this->uiBlocks->proCache) {
+					$minifiedPath = $this->uiBlocks->proCache->js($assets);
+				}
+				elseif($this->uiBlocks->aiom) {
+					$minifiedPath = \AIOM::JS($assets);
+				}
 				break;
 
 			case 'css':
-				$minifiedPath = \AIOM::CSS($assets);
+				if($this->uiBlocks->proCache) {
+					$minifiedPath = $this->uiBlocks->proCache->css($assets);
+				}
+				elseif($this->uiBlocks->aiom) {
+					$minifiedPath = \AIOM::CSS($assets);
+				}
 				break;
 
 			default:
@@ -250,9 +264,9 @@ abstract class UI extends Wire {
 	 * Passes all local scripts and styles to the global assets arrays for inclusion in the html
 	 */
 	protected function passAssets() {
-		$this->modules->UiBlocks->headScripts = array_unique(array_merge($this->modules->UiBlocks->headScripts, $this->headScripts));
-		$this->modules->UiBlocks->footScripts = array_unique(array_merge($this->modules->UiBlocks->footScripts, $this->footScripts));
-		$this->modules->UiBlocks->styles      = array_unique(array_merge($this->modules->UiBlocks->styles,      $this->styles));
+		$this->uiBlocks->headScripts = array_unique(array_merge($this->uiBlocks->headScripts, $this->headScripts));
+		$this->uiBlocks->footScripts = array_unique(array_merge($this->uiBlocks->footScripts, $this->footScripts));
+		$this->uiBlocks->styles      = array_unique(array_merge($this->uiBlocks->styles,      $this->styles));
 	}
 
 	protected function minify() {

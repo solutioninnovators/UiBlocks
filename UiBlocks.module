@@ -8,12 +8,14 @@ class UiBlocks extends WireData implements Module
 	public $ajaxRequestUrl; // The requested url, without the ajax or ui get parameters (for ajax calls)
 	public $currentUiPath = []; // Stores the path to the UI block that is currently executing
 	public $checkPath = true; // We switch this off once we hit the target UI so that the ajax method we hit can still render additional sub-blocks
+	public $proCache;
+	public $aiom;
 
 	public static function getModuleInfo()
 	{
 		return array(
 			'title' => 'UI Blocks',
-			'version' => 011,
+			'version' => 020,
 			'summary' => 'A Hierarchical Model-View-Controller (HMVC) Framework for building modular, nestable graphical user interfaces in ProcessWire.',
 			'singular' => true,
 			'autoload' => true,
@@ -26,6 +28,12 @@ class UiBlocks extends WireData implements Module
 	public function __construct() {}
 
 	public function init() {
+		if($this->modules->isInstalled('ProCache')) {
+			$this->proCache = $this->modules->get('ProCache');
+		}
+		if($this->modules->isInstalled('AllInOneMinify')) {
+			$this->aiom = $this->modules->get("AllInOneMinify");
+		}
 
 		/**
 		 * $input->shouldLoad($uiId)
