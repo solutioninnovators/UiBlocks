@@ -15,7 +15,7 @@ class UiBlocks extends WireData implements Module
 	{
 		return array(
 			'title' => 'UI Blocks',
-			'version' => 020,
+			'version' => 021,
 			'summary' => 'A Hierarchical Model-View-Controller (HMVC) Framework for building modular, nestable graphical user interfaces in ProcessWire.',
 			'singular' => true,
 			'autoload' => true,
@@ -28,7 +28,7 @@ class UiBlocks extends WireData implements Module
 	public function __construct() {}
 
 	public function init() {
-		if($this->modules->isInstalled('ProCache')) {
+		if($this->modules->isInstalled('ProCache') && $this->modules->getConfig('ProCache', 'cacheOn')) {
 			$this->proCache = $this->modules->get('ProCache');
 		}
 		if($this->modules->isInstalled('AllInOneMinify')) {
