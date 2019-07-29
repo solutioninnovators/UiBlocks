@@ -15,7 +15,7 @@ class UiBlocks extends WireData implements Module
 	{
 		return array(
 			'title' => 'UI Blocks',
-			'version' => 021,
+			'version' => 022,
 			'summary' => 'A Hierarchical Model-View-Controller (HMVC) Framework for building modular, nestable graphical user interfaces in ProcessWire.',
 			'singular' => true,
 			'autoload' => true,
@@ -63,34 +63,9 @@ class UiBlocks extends WireData implements Module
 
 		// Autoload model classes from the /site/templates/model/ folder when called
 		$this->wire('classLoader')->addNamespace('ProcessWire', wire('config')->paths->templates . "model/");
-	}
-
-	/**
-	 * For ajax requests
-	 * @return string|false ID of the UI Block that has been requested at the current depth/level, or false if no block was requested at this level
-	 */
-	public function uiRequestedAtCurrentDepth() {
-		$depth = count($this->currentUiPath);
-		$ajaxPath = explode('.', $this->input->ui);
-
-		if(count($ajaxPath) < $depth) return false;
-
-		return $ajaxPath[$depth - 1];
-	}
-
-	public function ready()
-	{
-		// Include hooks.php file from the templates/model folder
-		//$hooksFile = $this->config->paths->templates . "model/hooks.php";
-		//if(file_exists($hooksFile)) include($hooksFile);
-
-		if($this->page->template == 'admin') return;
-
-		// If this is an ajax request, close the session so that it doesn't prevent other ajax requests from being served simultaneously. Note that this means we cannot set any session variables during an ajax request.
-		//if($this->config->ajax) $this->session->close();
 
 		require(dirname(__FILE__) . '/UI.php'); // Load UI base class
-		
+
 		// Autoload UI subclasses from the /site/templates/ui/ folder when called
 		spl_autoload_register(function ($class) {
 			if(substr($class, -2) === 'UI') { // Class must end with 'UI' for this autoloader to be relevant
@@ -115,10 +90,25 @@ class UiBlocks extends WireData implements Module
 				}
 			}
 		});
+	}
 
+	public function ready() {
 		if($this->input->ajax) {
 			$this->setAjaxRequestUrl();
 		}
+	}
+
+	/**
+	 * For ajax requests
+	 * @return string|false ID of the UI Block that has been requested at the current depth/level, or false if no block was requested at this level
+	 */
+	public function uiRequestedAtCurrentDepth() {
+		$depth = count($this->currentUiPath);
+		$ajaxPath = explode('.', $this->input->ui);
+
+		if(count($ajaxPath) < $depth) return false;
+
+		return $ajaxPath[$depth - 1];
 	}
 
 	private function setAjaxRequestUrl() {
