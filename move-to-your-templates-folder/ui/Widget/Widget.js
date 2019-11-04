@@ -1,0 +1,1 @@
+/* JS automatically included when the Widget is called */

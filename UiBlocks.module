@@ -16,7 +16,7 @@ class UiBlocks extends WireData implements Module
 		return array(
 			'title' => 'UI Blocks',
 			'version' => 022,
-			'summary' => 'A Hierarchical Model-View-Controller (HMVC) Framework for building modular, nestable graphical user interfaces in ProcessWire.',
+			'summary' => 'A component-based framework for building modular, nestable graphical user interfaces in ProcessWire using MVC principals. Similar to Vue or React components, but server-side.',
 			'singular' => true,
 			'autoload' => true,
 			'installs' => array(),
