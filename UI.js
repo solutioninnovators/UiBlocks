@@ -1,54 +1,63 @@
-/**
- * Reload an entire UI block via AJAX
- *
- * Usage:
- *
- * reloadUI($('.ui_myUiId'), {key1: 'value', key2: 'value'}, url);
- *
- * Triggers a reloaded event on the block after reload is complete
- *
- * @return promise
- */
-function reloadUI($ui, extraQueryParams, url) {
-	if(!extraQueryParams) extraQueryParams = '';
-	if(!url) url = '';
+var UIBlocks = {
+	/**
+	 * Reload an entire UI block via AJAX
+	 *
+	 * Usage:
+	 *
+	 * UIBlocks.reload($('.ui_myUiId'), {key1: 'value', key2: 'value'}, url);
+	 *
+	 * Triggers a uib-reloaded event on the block after reload is complete
+	 *
+	 * @return promise
+	 */
+	reload: function($ui, extraQueryParams, url, animate) {
+		if (!extraQueryParams) extraQueryParams = '';
+		if (animate == null) animate = true;
 
-	if(typeof extraQueryParams === 'object') {
-		extraQueryParams = $.param(extraQueryParams);
-	}
-
-	if(extraQueryParams) {
-		extraQueryParams = "&" + extraQueryParams;
-	}
-
-	// @todo: store and make sure the id gets added back to the reloaded ui if it doesn't exist?
-	$ui.animate({opacity: 0.5}, 300);
-
-	return $.ajax({
-		type: 'get',
-		url: url,
-		dataType: 'json',
-		data: "ui=" + $ui.attr('data-ui-path') + "&ajax=reload" + extraQueryParams,
-		success: function(data) {
-			// Update view
-			var $newView = $(data.view);
-
-			$ui.replaceWith($newView);
-
-			$newView.css({opacity: 0.5}).animate({opacity: 1}, 500);
-
-			$(window).trigger('resize'); // Allow other js listening to the resize event to recalculate in case the layout has changed
-			$newView.trigger('reloaded'); // Trigger a reloaded event when the ui is reloaded
-		},
-		error: function (xhr, textStatus, errorThrown) {
-			console.log('Error: ' + textStatus + ' ' + errorThrown); // Log error in console
+		if (typeof extraQueryParams === 'object') {
+			extraQueryParams = $.param(extraQueryParams);
 		}
-	});
-}
+
+		if (extraQueryParams) {
+			extraQueryParams = "&" + extraQueryParams;
+		}
+
+		// @todo: store and make sure the id gets added back to the reloaded ui if it doesn't exist?
+		if (animate) {
+			$ui.css({'pointer-events': 'none'}).animate({opacity: 0.5}, 300);
+		}
+
+		return $.ajax({
+			type: 'get',
+			url: url,
+			dataType: 'json',
+			data: "ui=" + $ui.attr('data-ui-path') + "&ajax=reload" + extraQueryParams,
+			success: function (data) {
+				// Update view]
+				var $newView = $(data.view);
+
+				$ui.replaceWith($newView);
+
+				if (animate) {
+					$newView.css({opacity: 0.5}).animate({opacity: 1}, 300);
+				}
+
+				$(window).trigger('resize'); // Allow other js listening to the resize event to recalculate in case the layout has changed
+				$newView.trigger('uib-reloaded'); // Trigger a reloaded event when the ui is reloaded
+				$newView.trigger('reloaded'); // Trigger a reloaded event when the ui is reloaded @deprecated
+			},
+			error: function (xhr, textStatus, errorThrown) {
+				console.log('Error: ' + textStatus + ' ' + errorThrown); // Log error in console
+			}
+		});
+	}
+};
 
 $(function() {
 	/**
 	 * Alternate method of calling reloadUI() via triggering an event. Does not have a return value.
+	 *
+	 * @deprecated
 	 *
 	 * Usage:
 	 *
@@ -62,8 +71,8 @@ $(function() {
 	 * $('.ui_myUiId').trigger('reload', [{}, url] );
 	 *
      */
-	$('body').on('reload', '.ui', function(e, extraQueryParams, url) {
+	$('body').on('reload uib-reload', '.ui', function(e, extraQueryParams, url) {
 		e.stopPropagation(); // Only call for the element that 'reload' was called on - do not bubble up to other .ui elements
-		reloadUI($(this), extraQueryParams, url);
+		UIBlocks.reload($(this), extraQueryParams, url);
     });
 });
