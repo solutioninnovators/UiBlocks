@@ -55,7 +55,7 @@ var UIBlocks = {
 
 $(function() {
 	/**
-	 * Alternate method of calling reloadUI() via triggering an event. Does not have a return value.
+	 * Alternate method of calling UIBlocks.reload() via triggering an event. Does not have a return value.
 	 *
 	 * @deprecated
 	 *
