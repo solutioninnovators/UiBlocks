@@ -15,7 +15,7 @@ Developed by Mike Spooner (thetuningspoon) for Solution Innovators
 See examples in /move-to-your-templates-folder/ 
 
 ## Ajax
-With the ui.js file loaded on your site, any UI Block on the page can be refreshed at any time through javascript, without having to reload the entire page. Just give your block a unique $id property and call reloadUI($('.ui_myUiId'))
+With the ui.js file loaded on your site, any UI Block on the page can be refreshed at any time through javascript, without having to reload the entire page. Just give your block a unique $id property and call UIBlocks.reload($('.ui_myUiId'))
 
 UI Blocks also provides a clean methodology for organizing your ajax calls and their endpoints. Instead of creating separate files to handle your ajax calls, the endpoint methods that apply to each UI block are included in each UI block's controller. 
 
