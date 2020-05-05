@@ -4,11 +4,11 @@
  *
  * A "user interface" in our case represents any collection of php logic, markup/html, css, and javascript used in generating the graphical user interface (GUI) or portion of the GUI that the end user interacts with.
  *
- * Classes extending the UserInterface class should contain all logic for handling user input (http requests) and preparing data for output.
+ * Classes extending the UI class should contain all logic for handling user input (http requests) and preparing data for output.
  *
- * User interfaces make use of a separate "view" file for html markup (TemplateName.php by default), which uses ProcessWire's native TemplateFile class. Only presentational logic should be contained in the view file. (e.g. if/thens for showing/hiding content and simple loops for lists and tables)
+ * UIs make use of a separate "view" file for html markup (TemplateName.php by default), which uses ProcessWire's native TemplateFile class. Only presentational logic should be contained in the view file. (e.g. if/thens for showing/hiding content and simple loops for lists and tables)
  *
- * Business logic should be handled by the "model", which in this case is represented by ProcessWire Pages. To add custom properties and methods to a page, the Page class should be extended using a custom module.
+ * Business logic should be handled by the "model", which in this case is represented by ProcessWire Pages. To add custom properties and methods to a page, the Page class should be extended using a custom module or added to a /site/templates/model folder.
  *
  * All css, js, and html for an interface are grouped together in a directory with the same name in the templates folder. (i.e. "feature folders")
  *
