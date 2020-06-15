@@ -2,20 +2,28 @@
 
 class UiBlocks extends WireData implements Module
 {
-	public $headScripts = array();
-	public $footScripts = array();
-	public $styles = array();
+	/**
+	 * Configurable properties
+	 */
+	public $useFootScripts = false; // Use the footScripts array instead of the headScripts array for autoloading JS assets
+
+	/**
+	 * Reserved properties, managed internally
+	 */
+	public $headScripts = []; // Holds JS assets for use in the html head section
+	public $footScripts = []; // Holds JS assets for use in the html footer
+	public $styles = []; // Holds CSS assets
 	public $ajaxRequestUrl; // The requested url, without the ajax or ui get parameters (for ajax calls)
 	public $currentUiPath = []; // Stores the path to the UI block that is currently executing
 	public $checkPath = true; // We switch this off once we hit the target UI so that the ajax method we hit can still render additional sub-blocks
-	public $proCache;
-	public $aiom;
+	public $proCache; // Holds reference to procache module if installed
+	public $aiom; // Holds reference to AIOM module if installed
 
 	public static function getModuleInfo()
 	{
 		return array(
 			'title' => 'UI Blocks',
-			'version' => 023,
+			'version' => '1.0.0',
 			'summary' => 'A component-based framework for building modular, nestable graphical user interfaces in ProcessWire using MVC principals. Similar to Vue or React components, but server-side.',
 			'singular' => true,
 			'autoload' => true,
@@ -38,10 +46,13 @@ class UiBlocks extends WireData implements Module
 		/**
 		 * $input->shouldLoad($uiId)
 		 *
-		 * Use the following if statement around any code in your controllers that you do not want to execute if this is an ajax request and the given UI was not requested.
+		 * Use the following if statement around any code in your controllers that you do not want to execute if this is an ajax request and the given UI was not requested. Since blocks that are not part of the UI path are automatically skipped during an ajax call anyway, this is primarily useful for wrapping around database calls and other logic that is happening outside of the block and then getting passed into it.
 		 *
-		 * if($input->shouldLoad('myBlockId')) {
-		 * 		$block = new MyBlockUI();
+		 * @todo: Move this to a regular method on the UiBlocks module, rename to isInUiPath('myBlockId') and match functionality of Ui::isInUiPath?
+		 *
+		 * if($this->input->shouldLoad('myBlockId')) {
+		 * 		$items = $this->pages->find('template=something');
+		 * 		$block = new MyBlockUi(['id' => 'myBlockId', 'items' => $items]);
 		 * }
 		 *
 		 */
@@ -64,11 +75,12 @@ class UiBlocks extends WireData implements Module
 		// Autoload model classes from the /site/templates/model/ folder when called
 		$this->wire('classLoader')->addNamespace('ProcessWire', wire('config')->paths->templates . "model/");
 
-		require(dirname(__FILE__) . '/UI.php'); // Load UI base class
+		require(dirname(__FILE__) . '/Ui.php'); // Load UI base class
 
 		// Autoload UI subclasses from the /site/templates/ui/ folder when called
 		spl_autoload_register(function ($class) {
-			if(substr($class, -2) === 'UI') { // Class must end with 'UI' for this autoloader to be relevant
+			$lastTwo = substr($class, -2);
+			if($lastTwo === 'Ui' || $lastTwo === 'UI') { // Class must end with 'UI' for this autoloader to be relevant
 
 				$nameParts = explode('\\', $class);
 				$className = array_pop($nameParts); // Get the class name without the namespace
@@ -99,7 +111,7 @@ class UiBlocks extends WireData implements Module
 	}
 
 	/**
-	 * For ajax requests
+	 * For ajax and action requests
 	 * @return string|false ID of the UI Block that has been requested at the current depth/level, or false if no block was requested at this level
 	 */
 	public function uiRequestedAtCurrentDepth() {
@@ -111,6 +123,9 @@ class UiBlocks extends WireData implements Module
 		return $ajaxPath[$depth - 1];
 	}
 
+	/**
+	 * The requested url, without the ajax or ui get parameters (for ajax calls)
+	 */
 	private function setAjaxRequestUrl() {
 		// Strip out ajax and ui vars from query string
 		$getArray = $_GET;
@@ -147,6 +162,24 @@ class UiBlocks extends WireData implements Module
 			$out .= "<link rel=\"stylesheet\" href=\"$file\" /> \r\n";
 		}
 		return $out;
+	}
+
+	/**
+	 * Right now all this does is to initialize an unused UI block object for purposes of running through its constructor and setup functions, which causes its JS and CSS assets to be loaded into the master asset arrays.
+	 *
+	 * @param $uiNames array|string - Either an array of UI Block names or a single UI Block name
+	 */
+	public function register($uiNames) {
+		if(!is_array($uiNames)) {
+			$uiNames = [$uiNames];
+		}
+
+		foreach($uiNames as $uiName) {
+			$lastTwo = substr($uiName, -2);
+			if($lastTwo !== 'Ui' && $lastTwo !== 'UI') $uiName = $uiName . 'Ui';
+			$uiName = '\\ProcessWire\\' . $uiName;
+			new $uiName();
+		}
 	}
 
 	public function install() {}
