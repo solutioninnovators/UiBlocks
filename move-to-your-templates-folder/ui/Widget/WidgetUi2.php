@@ -1,5 +1,5 @@
 <?php namespace ProcessWire;
-class WidgetUI extends UI {
+class WidgetUi extends Ui {
 
 	public $version = 1; // Updating the version number will bust the browser cache for the js and css files associated with this block
 	public $id = 'bar'; // Example of setting a default prop value

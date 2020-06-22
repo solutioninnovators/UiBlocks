@@ -8,9 +8,13 @@ var UiBlocks = {
 	 *
 	 * Triggers a ui-reloaded event on the block after reload is complete
 	 *
-	 * @return promise
+	 * @param ui - The javascript element or jQuery object of the UI block (wrapper div)
+	 * @param extraParams - Any extra data that you want to pass via get
+	 * @param alternateUrl - Optionally specify an entirely different url (other than the current) to use for the reload
+	 * @param animate - Whether the loading transition should be animated. boolean true|false
+	 * @returns promise
 	 */
-	reload: function(ui, extraQueryParams, alternateUrl, animate) {
+	reload: function(ui, extraParams, alternateUrl, animate) {
 		var $ui = ui instanceof jQuery ? ui : $(ui);
 		if (animate == null) animate = true;
 
@@ -22,7 +26,7 @@ var UiBlocks = {
 			$ui.css({'pointer-events': 'none'}).animate({opacity: 0.5}, 300);
 		}
 
-		UiBlocks.ajax(ui, 'reload', extraQueryParams, 'get', alternateUrl).then(function (data) {
+		UiBlocks.ajax(ui, 'reload', extraParams, 'get', alternateUrl).then(function (data) {
 			// Update view
 			var $newView = $(data.view);
 
@@ -51,30 +55,30 @@ var UiBlocks = {
 	 *
 	 * @param ui - The javascript element or jQuery object of the UI block (wrapper div)
 	 * @param ajaxFunctionName - The name of the function you want to call (Leave off the "ajax_" prefix when specifying the function name)
-	 * @param extraQueryParams - Any data that you want to pass via post or get
-	 * @param type - Whether to submit the data as "post" or "get" (default: "post")
-	 * @param alternateUrl - Optionally specify an entirely different url (other than the current) to submit to
+	 * @param extraParams - object containing any extra data that you want to pass via post or get
+	 * @param method - Whether to submit the data as "post" or "get" (default: "post")
+	 * @param alternateUrl - Optionally specify an entirely different url (other than the current) to submit to. By default, the current url with all query parameters will be used, which is almost always what you want.
      * @returns promise
      */
-	ajax: function(ui, ajaxFunctionName, extraQueryParams, type, alternateUrl) {
+	ajax: function(ui, ajaxFunctionName, extraParams, type, alternateUrl) {
 		var $ui = ui instanceof jQuery ? ui : $(ui);
 		if (!type) type = 'post';
 
-		if (!extraQueryParams) extraQueryParams = '';
+		if (!extraParams) extraParams = '';
 
-		if (typeof extraQueryParams === 'object') {
-			extraQueryParams = $.param(extraQueryParams);
+		if (typeof extraParams === 'object') {
+			extraParams = $.param(extraParams);
 		}
 
-		if (extraQueryParams) {
-			extraQueryParams = "&" + extraQueryParams;
+		if (extraParams) {
+			extraParams = "&" + extraParams;
 		}
 
 		return $.ajax({
 			type: type,
 			url: alternateUrl,
 			dataType: 'json',
-			data: "ui=" + $ui.attr('data-ui-path') + "&ajax=" + ajaxFunctionName + extraQueryParams
+			data: "ui=" + $ui.attr('data-ui-path') + "&ajax=" + ajaxFunctionName + extraParams
 		});
 	},
 
@@ -121,8 +125,8 @@ $(function() {
 	 * $('.ui_myUiId').trigger('reload', [{}, alternateUrl] );
 	 *
      */
-	$('body').on('reload ui-reload', '.ui', function(e, extraQueryParams, alternateUrl) {
+	$('body').on('reload ui-reload', '.ui', function(e, extraParams, alternateUrl) {
 		e.stopPropagation(); // Only call for the element that 'reload' was called on - do not bubble up to other .ui elements
-		UiBlocks.reload($(this), extraQueryParams, alternateUrl);
+		UiBlocks.reload($(this), extraParams, alternateUrl);
     });
 });

@@ -344,10 +344,19 @@ abstract class Ui extends Wire {
 	}
 
 	/**
-	 * Passes variables to the view and calls render() on it
+	 * Runs the controller, passes variables to the view and calls render() on it
 	 * @return string output from view TemplateFile
 	 */
 	protected function renderView() {
+		$result = $this->run(); // Run the controller
+
+		// If the run method returned an associative array of variables, we pass them to the view
+		if(is_array($result)) {
+			foreach($result as $key => $value) {
+				$this->view->set($key, $value);
+			}
+		}
+
 		$this->view->ui = $this; // Pass the UI object to the view
 		$this->passPublicPropertiesToView();
 
@@ -436,7 +445,6 @@ abstract class Ui extends Wire {
 			}
 			else { // Render the view
 				//echo "rendered {$this->id} at depth {$this->depth} | ";
-				$this->run();
 				$output = $this->renderView();
 				$this->end();
 
@@ -473,7 +481,6 @@ abstract class Ui extends Wire {
 	 * Produces JSON array with single "view" element containing the html markup
 	 */
 	protected function ajax_reload() {
-		$this->run();
 		$this->ajax['view'] = $this->renderView();
 	}
 

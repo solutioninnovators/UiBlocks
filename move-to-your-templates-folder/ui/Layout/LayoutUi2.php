@@ -1,5 +1,5 @@
 <?php namespace ProcessWire;
-class LayoutUI extends UI {
+class LayoutUi extends Ui {
 
 	// Public properties ('props') that can be configured for each instance of the UI Block. Props are automatically passed to the view.
 	public $version = 1;
@@ -15,8 +15,7 @@ class LayoutUI extends UI {
 	 */
 	protected function setup() {
 		//$this->styles[] = "{$this->config->urls->templates}library/myStyles.css";
-		$this->headScripts[] = "https://code.jquery.com/jquery-3.1.1.min.js"; // Include your version of jQuery
-		$this->headScripts[] = "{$this->config->urls->siteModules}UIBlocks-master/UI.js"; // Include the main UI.js file to use the build in ajax functions
+		$this->headScripts[] = "{$this->config->urls->siteModules}UIBlocks-master/Ui.js"; // Include the main Ui.js file to use the build in ajax functions
 	}
 
 	/**

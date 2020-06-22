@@ -15,13 +15,13 @@ var UiBlocks = {
 	 * Triggers a ui-reloaded event on the block after reload is complete
 	 *
 	 * @param ui - The javascript element or jQuery object of the UI block (wrapper div)
-	 * @param extraQueryParams - Any extra data that you want to pass via get
+	 * @param extraParams - Any extra data that you want to pass via get
 	 * @param alternateUrl - Optionally specify an entirely different url (other than the current) to use for the reload
 	 * @param animate - Whether the loading transition should be animated. boolean true|false
 	 * @returns promise
 	 * @todo: store and make sure the id gets added back to the reloaded ui if it doesn't exist?
 	 */
-	reload: function(ui, extraQueryParams, alternateUrl, animate) {
+	reload: function(ui, extraParams, alternateUrl, animate) {
 		var ui = ui instanceof jQuery ? ui[0] : ui; // Convert jQuery objects to plain js elements
 		if (animate == null) animate = true;
 
@@ -33,7 +33,7 @@ var UiBlocks = {
 			ui.style.opacity = 0.5;
 		}
 
-		UiBlocks.ajax(ui, 'reload', extraQueryParams, 'get', alternateUrl).then(function (data) {
+		UiBlocks.ajax(ui, 'reload', extraParams, 'get', alternateUrl).then(function (data) {
 			// Update view
 
 			var tempDiv = document.createElement('div');
@@ -172,9 +172,9 @@ if(typeof jQuery != 'undefined') {
 		 * $('.ui_myUiId').trigger('reload', [{}, alternateUrl] );
 		 *
 		 */
-		$('body').on('reload ui-reload', '.ui', function (e, extraQueryParams, alternateUrl) {
+		$('body').on('reload ui-reload', '.ui', function (e, extraParams, alternateUrl) {
 			e.stopPropagation(); // Only call for the element that 'reload' was called on - do not bubble up to other .ui elements
-			UiBlocks.reload($(this), extraQueryParams, alternateUrl);
+			UiBlocks.reload($(this), extraParams, alternateUrl);
 		});
 	});
 }
