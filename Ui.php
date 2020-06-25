@@ -54,9 +54,7 @@ abstract class Ui extends Wire {
 		// Copy values from the options array to public properties
 		if($options) {
 			foreach($options as $key => $val) {
-				if(property_exists($this, $key)) {
-					$this->$key = $val;
-				}
+				$this->$key = $val;
 			}
 		}
 
@@ -149,11 +147,18 @@ abstract class Ui extends Wire {
 	/**
 	 * Passes all public properties of the controller to the view for convenience
 	 */
-	protected function passPublicPropertiesToView() {
-		$reflection = new \ReflectionObject($this);
-		$publicProperties = $reflection->getProperties(\ReflectionProperty::IS_PUBLIC);
-		foreach($publicProperties as $property){
-			$this->view->set($property->getName(), $property->getValue($this));
+	protected function passPropertiesToView() {
+		$excludedProperties = [
+			'localHooks',
+			'useFuel',
+			'view',
+			'ajax'
+		];
+
+		foreach($this as $name => $value) {
+			if(substr($name, 0, 1) !== '_' && !in_array($name, $excludedProperties)) { // Don't include properties that start with "_" or that are in the exclusions array
+				$this->view->set($name, $value);
+			}
 		}
 	}
 
@@ -358,7 +363,7 @@ abstract class Ui extends Wire {
 		}
 
 		$this->view->ui = $this; // Pass the UI object to the view
-		$this->passPublicPropertiesToView();
+		$this->passPropertiesToView();
 
 		$output = '';
 		if($this->wrapper) $output .= $this->header();
