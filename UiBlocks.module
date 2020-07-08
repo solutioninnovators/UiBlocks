@@ -23,7 +23,7 @@ class UiBlocks extends WireData implements Module
 	{
 		return array(
 			'title' => 'UI Blocks',
-			'version' => '1.1.0',
+			'version' => '1.1.1',
 			'summary' => 'A component-based framework for building modular, nestable graphical user interfaces in ProcessWire using MVC principals. Similar to Vue or React components, but server-side.',
 			'singular' => true,
 			'autoload' => true,
@@ -80,10 +80,11 @@ class UiBlocks extends WireData implements Module
 		// Autoload UI subclasses from the /site/templates/ui/ folder when called
 		spl_autoload_register(function ($class) {
 			$lastTwo = substr($class, -2);
-			if($lastTwo === 'Ui' || $lastTwo === 'UI') { // Class must end with 'UI' for this autoloader to be relevant
+			if($lastTwo === 'Ui' || $lastTwo === 'UI') { // Class must end with 'Ui/UI' for this autoloader to be relevant
 
 				$nameParts = explode('\\', $class);
 				$className = array_pop($nameParts); // Get the class name without the namespace
+				$className = substr($className, 0, -2); // Remove Ui/UI from the end
 
 				$baseFolder = wire('config')->paths->templates . "ui";
 
@@ -92,7 +93,7 @@ class UiBlocks extends WireData implements Module
 
 				while (!$fileFound) {
 					$dirLevels .= '/*';
-					$fileMatches = glob($baseFolder . $dirLevels . '/' . $className . '.php', GLOB_NOSORT);
+					$fileMatches = glob($baseFolder . $dirLevels . '/' . $className . 'U[iI].php', GLOB_NOSORT);
 					if (count($fileMatches)) {
 						$fileFound = true;
 						require($fileMatches[0]);
