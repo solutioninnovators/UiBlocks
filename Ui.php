@@ -327,14 +327,14 @@ abstract class Ui extends Wire {
 	 */
 	protected function header() {
 		$name = $this->getUiName();
-		$id = $this->sanitizer->entities($this->id);
+		$id = $this->sanitizer->entities1($this->id);
 		$uiId = empty($id) ? '' : "ui_$id";
 		$htmlId = empty($id) ? '' : "id='ui_$id'";
-		$path = $this->uiPathString;
+		$path = $this->sanitizer->entities1($this->uiPathString);
 
 		$url = '';
 		if($this->uiBlocks->ajaxRequestUrl !== null && $this->isTargetBlock()) {
-			$ajaxRequestUrl = $this->sanitizer->entities($this->uiBlocks->ajaxRequestUrl);
+			$ajaxRequestUrl = $this->sanitizer->entities1($this->uiBlocks->ajaxRequestUrl);
 			$url = "data-ui-url='$ajaxRequestUrl'";
 		}
 
