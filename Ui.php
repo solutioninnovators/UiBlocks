@@ -30,7 +30,8 @@ abstract class Ui extends Wire {
 	public $styles = [];
 	public $minify = true;
 	public $wrapper = true; // Enable/disable the header and footer markup surrounding the block
-	public $classes = ''; // Classes to add to the wrapper
+	public $wrapperAttributes = []; // Associative array of attributes to add to the wrapper div
+	public $classes = ''; // Classes to add to the wrapper todo: Change to wrapperClasses?
 	public $debug = null; // Allows AJAX data to be output even if $config->ajax is false. May be used to switch on other debug data as needed. If not set, the value from PW's global $config->debug will be used
 
 
@@ -152,7 +153,9 @@ abstract class Ui extends Wire {
 			'localHooks',
 			'useFuel',
 			'view',
-			'ajax'
+			'ajax',
+			'trackChanges',
+			'changes'
 		];
 
 		foreach($this as $name => $value) {
@@ -338,7 +341,12 @@ abstract class Ui extends Wire {
 			$url = "data-ui-url='$ajaxRequestUrl'";
 		}
 
-		return "<div $htmlId class='ui ui_$name $uiId {$this->sanitizer->entities($this->classes)}' data-ui-name='$name' data-ui-id='$id' data-ui-path='$path' $url>";
+		$attributes = '';
+		foreach($this->wrapperAttributes as $attrKey => $attrValue) {
+			$attributes .= $this->sanitizer->entities1($attrKey) . '="' . $this->sanitizer->entities1($attrValue) . '" ';
+		}
+
+		return "<div $htmlId class='ui ui_$name $uiId {$this->sanitizer->entities1($this->classes)}' data-ui-name='$name' data-ui-id='$id' data-ui-path='$path' $url $attributes>";
 	}
 
 	/**
