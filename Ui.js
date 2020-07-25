@@ -70,7 +70,7 @@ var UiBlocks = {
 	 *
 	 * @param ui - The javascript element or jQuery object of the UI block (wrapper div)
 	 * @param ajaxFunctionName - The name of the function you want to call (Leave off the "ajax_" prefix when specifying the function name)
-	 * @param extraParams - object containing any extra data that you want to pass via post or get
+	 * @param extraParams - object containing any extra data that you want to pass via post or get todo: Also accept a query string
 	 * @param method - Whether to submit the data as "post" or "get" (default: "post")
 	 * @param alternateUrl - Optionally specify an entirely different url (other than the current) to submit to. By default, the current url with all query parameters will be used, which is almost always what you want.
      * @returns promise

@@ -60,9 +60,9 @@ var UiBlocks = {
 	 * @param alternateUrl - Optionally specify an entirely different url (other than the current) to submit to. By default, the current url with all query parameters will be used, which is almost always what you want.
      * @returns promise
      */
-	ajax: function(ui, ajaxFunctionName, extraParams, type, alternateUrl) {
+	ajax: function(ui, ajaxFunctionName, extraParams, method, alternateUrl) {
 		var $ui = ui instanceof jQuery ? ui : $(ui);
-		if (!type) type = 'post';
+		if (!method) method = 'post';
 
 		if (!extraParams) extraParams = '';
 
@@ -75,7 +75,7 @@ var UiBlocks = {
 		}
 
 		return $.ajax({
-			type: type,
+			type: method,
 			url: alternateUrl,
 			dataType: 'json',
 			data: "ui=" + $ui.attr('data-ui-path') + "&ajax=" + ajaxFunctionName + extraParams
