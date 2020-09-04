@@ -69,13 +69,18 @@ abstract class Ui extends Wire {
 
 		$this->setup();
 
-		$this->autoIncludeAssets();
-
-		if($this->minify && ($this->uiBlocks->proCache || $this->uiBlocks->aiom)) {
-			$this->minify();
+		if($this->requestIsAjax() || $this->requestIsAction()) {
+			// No need to deal with assets if this is ajax or an action request
 		}
+		else {
+			$this->autoIncludeAssets();
 
-		$this->passAssets();
+			if ($this->minify && ($this->uiBlocks->proCache || $this->uiBlocks->aiom)) {
+				$this->minify();
+			}
+
+			$this->passAssets();
+		}
 	}
 
 	/**
