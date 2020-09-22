@@ -33,7 +33,9 @@ var UiBlocks = {
 			ui.style.opacity = 0.5;
 		}
 
-		UiBlocks.ajax(ui, 'reload', extraParams, 'get', alternateUrl).then(function (data) {
+		var result = UiBlocks.ajax(ui, 'reload', extraParams, 'get', alternateUrl);
+
+		result.then(function (data) {
 			// Update view
 
 			var tempDiv = document.createElement('div');
@@ -53,6 +55,8 @@ var UiBlocks = {
 		function (xhr, textStatus, errorThrown) {
 			console.log('Error: ' + textStatus + ' ' + errorThrown); // Log error in console
 		});
+
+		return result;
 	},
 
 	/**

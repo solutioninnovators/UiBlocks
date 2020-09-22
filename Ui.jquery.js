@@ -26,7 +26,9 @@ var UiBlocks = {
 			$ui.css({'pointer-events': 'none'}).animate({opacity: 0.5}, 300);
 		}
 
-		UiBlocks.ajax(ui, 'reload', extraParams, 'get', alternateUrl).then(function (data) {
+		var result = UiBlocks.ajax(ui, 'reload', extraParams, 'get', alternateUrl);
+
+		result.then(function (data) {
 			// Update view
 			var $newView = $(data.view);
 
@@ -43,6 +45,8 @@ var UiBlocks = {
 		function (xhr, textStatus, errorThrown) {
 			console.log('Error: ' + textStatus + ' ' + errorThrown); // Log error in console
 		});
+
+		return result;
 	},
 
 	/**
