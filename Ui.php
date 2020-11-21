@@ -32,7 +32,7 @@ abstract class Ui extends Wire {
 	public $wrapper = true; // Enable/disable the header and footer markup surrounding the block
 	public $wrapperAttributes = []; // Associative array of attributes to add to the wrapper div
 	public $classes = ''; // Classes to add to the wrapper todo: Change to wrapperClasses?
-	public $debug = null; // Allows AJAX data to be output even if $config->ajax is false. May be used to switch on other debug data as needed. If not set, the value from PW's global $config->debug will be used
+	public $debug; // Allows AJAX data to be output even if $config->ajax is false. May be used to switch on other debug data as needed. If not set, the value from PW's global $config->debug will be used
 
 
 	/**

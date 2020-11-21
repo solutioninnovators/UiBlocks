@@ -20,27 +20,43 @@ var UiBlocks = {
 
 		$ui.trigger('ui-reloading'); // Trigger an event when the ui begins reload
 
+		var reloadRequestTime = new Date().getTime();
+		$ui.attr('data-ui-last-reload-request', reloadRequestTime);
+
 		// @todo: store and make sure the id gets added back to the reloaded ui if it doesn't exist?
 
 		if (animate) {
 			$ui.css({'pointer-events': 'none'}).animate({opacity: 0.5}, 300);
 		}
+		if (animate == 'spinner') {
+			if(!$ui.find('.ui-spinner').length) {
+				$ui.css('position', 'relative')
+				var $spinner = $("<div class='ui-spinner' style='margin: auto; position: absolute; top: 0; left: 0; bottom: 0; right: 0; font-size: 2rem; width: 2rem; height: 2rem; display: none;'><i class='fa fa-circle-o-notch fa-spin'></i></div>");
+				$ui.append($spinner);
+				$spinner.fadeIn();
+			}
+		}
 
 		var result = UiBlocks.ajax(ui, 'reload', extraParams, 'get', alternateUrl);
 
 		result.then(function (data) {
-			// Update view
-			var $newView = $(data.view);
+			if(reloadRequestTime == $ui.attr('data-ui-last-reload-request')) {
+				// Update view
+				var $newView = $(data.view);
 
-			$ui.replaceWith($newView);
+				$ui.replaceWith($newView);
 
-			if (animate) {
-				$newView.css({opacity: 0.5}).animate({opacity: 1}, 300);
+				if (animate) {
+					$newView.css({opacity: 0.5}).animate({opacity: 1}, 300);
+				}
+
+				$(window).trigger('resize'); // Allow other js listening to the resize event to recalculate in case the layout has changed
+				$newView.trigger('ui-reloaded'); // Trigger a reloaded event when the ui is reloaded
+				$newView.trigger('reloaded'); // Trigger a reloaded event when the ui is reloaded @deprecated
 			}
-
-			$(window).trigger('resize'); // Allow other js listening to the resize event to recalculate in case the layout has changed
-			$newView.trigger('ui-reloaded'); // Trigger a reloaded event when the ui is reloaded
-			$newView.trigger('reloaded'); // Trigger a reloaded event when the ui is reloaded @deprecated
+			else {
+				console.log('AJAX response ignored because it was obsolete.');
+			}
 		},
 		function (xhr, textStatus, errorThrown) {
 			console.log('Error: ' + textStatus + ' ' + errorThrown); // Log error in console

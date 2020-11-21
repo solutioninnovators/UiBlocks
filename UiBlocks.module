@@ -6,6 +6,7 @@ class UiBlocks extends WireData implements Module
 	 * Configurable properties
 	 */
 	public $useFootScripts = false; // Use the footScripts array instead of the headScripts array for autoloading JS assets
+	public $ajaxSessionWrite = true; // Set to false if you don't need to use session write during ajax requests. This will greatly increase the speed of concurrent ajax requests. You can also turn write on and off on a per request basis by adding sessionWrite=1 or sessionWrite=0 to your post or get request parameters. See __construct() below for more information.
 
 	/**
 	 * Reserved properties, managed internally
@@ -23,7 +24,7 @@ class UiBlocks extends WireData implements Module
 	{
 		return array(
 			'title' => 'UI Blocks',
-			'version' => '1.1.7',
+			'version' => '1.1.8',
 			'summary' => 'A component-based framework for building modular, nestable graphical user interfaces in ProcessWire using MVC principals. Similar to Vue or React components, but server-side.',
 			'singular' => true,
 			'autoload' => true,
@@ -33,7 +34,35 @@ class UiBlocks extends WireData implements Module
 		);
 	}
 
-	public function __construct() {}
+	public function __construct() {
+		/**
+		 * If we don't need to write to the session on this request, immediately call session_write_close to speed up concurrent ajax requests.
+		 * The use of database session management is also highly recommended.
+		 *
+		 * Use sessionWrite=1 to enable and sessionWrite=0 to disable writing to the session.
+		 *
+		 * If sessionWrite is not found in the query string or post body, session write will default to the value of $ajaxSessionWrite on this module (which is true unless you've explicitly overridden it).
+		 */
+		if(!empty($_REQUEST['ajax'])) {
+			$sessionWrite = $this->ajaxSessionWrite;
+
+			// If sessionWrite is defined in post or get, use it to override the default setting
+			if(isset($_REQUEST['sessionWrite'])) {
+				if($_REQUEST['sessionWrite'] == '0') {
+					$sessionWrite = false;
+				}
+				elseif($_REQUEST['sessionWrite'] == '1') {
+					$sessionWrite = true;
+				}
+			}
+
+			if($sessionWrite == false) {
+				$this->addHookAfter('Session::init', function ($e) {
+					session_write_close();
+				});
+			}
+		}
+	}
 
 	public function init() {
 		if($this->modules->isInstalled('ProCache') && $this->modules->getConfig('ProCache', 'cacheOn')) {
@@ -47,6 +76,8 @@ class UiBlocks extends WireData implements Module
 		 * $input->shouldLoad($uiId)
 		 *
 		 * Use the following if statement around any code in your controllers that you do not want to execute if this is an ajax request and the given UI was not requested. Since blocks that are not part of the UI path are automatically skipped during an ajax call anyway, this is primarily useful for wrapping around database calls and other logic that is happening outside of the block and then getting passed into it.
+		 *
+		 * An alternative is to pass in callback functions to the block for database calls.
 		 *
 		 * @todo: Move this to a regular method on the UiBlocks module, rename to isInUiPath('myBlockId') and match functionality of Ui::isInUiPath?
 		 *
