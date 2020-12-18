@@ -13,22 +13,41 @@ var UiBlocks = {
 	 * @param alternateUrl - Optionally specify an entirely different url (other than the current) to use for the reload
 	 * @param animate - Whether the loading transition should be animated. boolean true|false
 	 * @returns promise
+	 * @todo: store and make sure the id gets added back to the reloaded ui if it doesn't exist?
 	 */
 	reload: function(ui, extraParams, alternateUrl, animate) {
+		var defaultOptions = {
+			extraParams: undefined,
+			alternateUrl: undefined,
+			animate: true,
+		};
+
+		// Determine if the extraParams parameter is actually an options object by checking if one of its keys is in defaultOptions
+		var userDefinedOptions = {};
+		var extraParamsAreOptions = false;
+		if(extraParams !== undefined && typeof extraParams === 'object') {
+			var firstExtraParamsKey = Object.keys(extraParams)[0];
+			if(firstExtraParamsKey in defaultOptions) {
+				userDefinedOptions = extraParams;
+				extraParamsAreOptions = true;
+			}
+		}
+		var options = $.extend({}, defaultOptions, userDefinedOptions);
+		if(!extraParamsAreOptions) options.extraParams = extraParams;
+		if(alternateUrl !== undefined) options.alternateUrl = alternateUrl;
+		if(animate !== undefined) options.animate = animate;
+
 		var $ui = ui instanceof jQuery ? ui : $(ui);
-		if (animate == null) animate = true;
 
 		$ui.trigger('ui-reloading'); // Trigger an event when the ui begins reload
 
 		var reloadRequestTime = new Date().getTime();
 		$ui.attr('data-ui-last-reload-request', reloadRequestTime);
 
-		// @todo: store and make sure the id gets added back to the reloaded ui if it doesn't exist?
-
-		if (animate) {
+		if (options.animate) {
 			$ui.css({'pointer-events': 'none'}).animate({opacity: 0.5}, 300);
 		}
-		if (animate == 'spinner') {
+		if (options.animate == 'spinner') {
 			if(!$ui.find('.ui-spinner').length) {
 				$ui.css('position', 'relative')
 				var $spinner = $("<div class='ui-spinner' style='margin: auto; position: absolute; top: 0; left: 0; bottom: 0; right: 0; font-size: 2rem; width: 2rem; height: 2rem; display: none;'><i class='fa fa-circle-o-notch fa-spin'></i></div>");
@@ -37,7 +56,7 @@ var UiBlocks = {
 			}
 		}
 
-		var result = UiBlocks.ajax(ui, 'reload', extraParams, 'get', alternateUrl);
+		var result = UiBlocks.ajax(ui, 'reload', options.extraParams, 'get', options.alternateUrl);
 
 		result.then(function (data) {
 			if(reloadRequestTime == $ui.attr('data-ui-last-reload-request')) {
@@ -46,7 +65,7 @@ var UiBlocks = {
 
 				$ui.replaceWith($newView);
 
-				if (animate) {
+				if (options.animate) {
 					$newView.css({opacity: 0.5}).animate({opacity: 1}, 300);
 				}
 
@@ -73,32 +92,52 @@ var UiBlocks = {
 	 *
 	 * UiBlocks.ajax($('.ui_myUiId'), 'myFunctionName', {key1: 'value', key2: 'value'}, 'post', alternateUrl);
 	 *
-	 * @param ui - The javascript element or jQuery object of the UI block (wrapper div)
-	 * @param ajaxFunctionName - The name of the function you want to call (Leave off the "ajax_" prefix when specifying the function name)
-	 * @param extraParams - object containing any extra data that you want to pass via post or get
+	 * @param object ui - The javascript element or jQuery object of the UI block (wrapper div)
+	 * @param string ajaxFunctionName - The name of the function you want to call (Leave off the "ajax_" prefix when specifying the function name)
+	 * @param object|string extraParams - object containing any extra data that you want to pass via post or get. Also accepts an options array (see defaultOptions below)
 	 * @param method - Whether to submit the data as "post" or "get" (default: "post")
 	 * @param alternateUrl - Optionally specify an entirely different url (other than the current) to submit to. By default, the current url with all query parameters will be used, which is almost always what you want.
      * @returns promise
      */
 	ajax: function(ui, ajaxFunctionName, extraParams, method, alternateUrl) {
+		var defaultOptions = {
+			extraParams: undefined,
+			method: 'post',
+			alternateUrl: undefined,
+		};
+
+		// Determine if the extraParams parameter is actually an options object by checking if one of its keys is in defaultOptions
+		var userDefinedOptions = {};
+		var extraParamsAreOptions = false;
+		if(extraParams !== undefined && typeof extraParams === 'object') {
+			var firstExtraParamsKey = Object.keys(extraParams)[0];
+			if(firstExtraParamsKey in defaultOptions) {
+				userDefinedOptions = extraParams;
+				extraParamsAreOptions = true;
+			}
+		}
+		var options = $.extend({}, defaultOptions, userDefinedOptions);
+		if(!extraParamsAreOptions) options.extraParams = extraParams;
+		if(method !== undefined) options.method = method;
+		if(alternateUrl !== undefined) options.alternateUrl = alternateUrl;
+
 		var $ui = ui instanceof jQuery ? ui : $(ui);
-		if (!method) method = 'post';
 
-		if (!extraParams) extraParams = '';
+		if (!options.extraParams) options.extraParams = '';
 
-		if (typeof extraParams === 'object') {
-			extraParams = $.param(extraParams);
+		if (typeof options.extraParams === 'object') {
+			options.extraParams = $.param(options.extraParams);
 		}
 
-		if (extraParams) {
-			extraParams = "&" + extraParams;
+		if (options.extraParams) {
+			options.extraParams = "&" + options.extraParams;
 		}
 
 		return $.ajax({
-			type: method,
-			url: alternateUrl,
+			type: options.method,
+			url: options.alternateUrl,
 			dataType: 'json',
-			data: "ui=" + $ui.attr('data-ui-path') + "&ajax=" + ajaxFunctionName + extraParams
+			data: "ui=" + $ui.attr('data-ui-path') + "&ajax=" + ajaxFunctionName + options.extraParams
 		});
 	},
 
