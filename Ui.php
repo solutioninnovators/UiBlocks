@@ -28,7 +28,8 @@ abstract class Ui extends Wire {
 	public $headScripts = [];
 	public $footScripts = [];
 	public $styles = [];
-	public $minify = true;
+	public $minify; // Should assets be minified? (defaults to setting in UiBlocks.module)
+	public $merge; // Should assets be merged? (defaults to setting in UiBlocks.module)
 	public $wrapper = true; // Enable/disable the header and footer markup surrounding the block
 	public $wrapperAttributes = []; // Associative array of attributes to add to the wrapper div
 	public $classes = ''; // Classes to add to the wrapper todo: Change to wrapperClasses?
@@ -51,6 +52,8 @@ abstract class Ui extends Wire {
 
 	function __construct(array $options = null) {
 		$this->uiBlocks = $this->wire('modules')->get('UiBlocks');
+		if($this->minify === null) $this->minify = $this->uiBlocks->minify;
+		if($this->merge === null) $this->merge = $this->uiBlocks->merge;
 
 		// Copy values from the options array to public properties
 		if($options) {
@@ -69,18 +72,17 @@ abstract class Ui extends Wire {
 
 		$this->setup();
 
-		if($this->requestIsAjax() || $this->requestIsAction()) {
-			// No need to deal with assets if this is ajax or an action request
+		if(!$this->uiBlocks->manageAssets || $this->requestIsAjax() || $this->requestIsAction()) {
+			// No need to deal with assets if this is ajax or an action request, or if we've disabled asset autoloading completely
 		}
 		else {
-			$this->autoIncludeAssets();
-
-			if ($this->minify && ($this->uiBlocks->proCache || $this->uiBlocks->aiom)) {
-				$this->minify();
+			if(!$this->uiBlocks->isRegistered($this->uiName)) { // No need to search for assets if we've already used this block before
+				$this->autoIncludeAssets();
 			}
-
 			$this->passAssets();
 		}
+
+		$this->uiBlocks->addToRegistry($this->uiName);
 	}
 
 	/**
@@ -201,42 +203,123 @@ abstract class Ui extends Wire {
 		$this->autoIncludeAsset('css', 'styles');
 	}
 
-	private function autoIncludeAsset($ext, $destinationArray, $className = null) {
-		$fileName = $this->getUiName($className) . '.' . $ext;
+	private function autoIncludeAsset($type, $destinationArray, $className = null) {
+		$fileName = $this->getUiName($className) . '.' . $type;
 		$filePath = $this->getPath($className) . $fileName;
 		$fileUrl = $this->getUrl($className) . $fileName;
 
 		$exists = false;
-		if($ext == 'js') {
+		if($type == 'js') {
 			if(file_exists($filePath) && !in_array($fileUrl, $this->headScripts) && !in_array($fileUrl, $this->footScripts))
 				$exists = true;
 		}
-		elseif($ext == 'css') {
+		elseif($type == 'css') {
 			if(file_exists($filePath) && !in_array($fileUrl, $this->styles)) {
 				$exists = true;
 			}
 		}
 
 		if($exists) {
-			// If minifying, don't include the version query string for cache busting (the cache module will handle that)
-			if($this->version && (!$this->minify || (!$this->uiBlocks->proCache && !$this->uiBlocks->aiom))) {
-				$versionSuffix = $this->version ? "?v={$this->version}" : '';
-				$fileUrl .= $versionSuffix;
-			}
 			$this->$destinationArray[] = $fileUrl;
 		}
 	}
 
+
+	/**
+	 * Removes external assets from the array you pass in and returns a separate array of external assets
+	 * @return An array of external assets (absolute urls that cannot be minified/merged)
+	 */
+	protected function separateExternalAssets(array &$assets) {
+		$externalAssets = [];
+
+		foreach($assets as $key => $val) {
+			if($this->isExternalAsset($val)) {
+				$externalAssets[] = $val;
+				unset($assets[$key]);
+			}
+		}
+
+		return $externalAssets;
+	}
+
+	protected function isExternalAsset(string $asset) {
+		return strpos($asset, 'http://') !== false || strpos($asset, 'https://') !== false;
+	}
+
+	/**
+	 * Passes all local scripts and styles to the global assets arrays for inclusion in the html
+	 */
+	protected function passAssets() {
+		$this->processAssets($this->headScripts, 'js');
+		$this->processAssets($this->footScripts, 'js');
+		$this->processAssets($this->styles, 'css');
+
+		$this->uiBlocks->headScripts = array_merge($this->uiBlocks->headScripts, $this->headScripts);
+		$this->uiBlocks->footScripts = array_merge($this->uiBlocks->footScripts, $this->footScripts);
+		$this->uiBlocks->styles = array_merge($this->uiBlocks->styles, $this->styles);
+	}
+
+	/**
+	 * Checks to see if this UiBlock contains any assets that are already part of the global asset arrays, and strips them out of the local assets if so.
+	 * If the asset is not present, add it to the global rawAssets array so it won't be duplicated later.
+	 * Minifies assets if enabled
+	 * Adds version numbers for cache busting
+	 */
+	protected function processAssets(array &$assets, string $type) {
+		// Remove any assets that are already in the global array by checking for it in the rawAssets global array
+		foreach($assets as $key => $value) {
+			if($this->uiBlocks->inAssets($value)) {
+				unset($assets[$key]);
+			}
+			// If not in the global array, add to the global rawAssets array to avoid duplicating later on
+			else {
+				$this->uiBlocks->rawAssets[] = $value;
+			}
+		}
+
+		if(count($assets)) {
+			// If we want to minify/merge, do so now
+			if($this->minify && ($this->uiBlocks->proCache || $this->uiBlocks->aiom)) {
+				$this->minify($assets, $type);
+			}
+			else {
+				// Add version number to non-external assets for cache busting purposes (not necessary if we're merging/minifying)
+				if($this->version) {
+					$versionSuffix = $this->version ? "?v={$this->version}" : '';
+					foreach($assets as $key => $value) {
+						if(!$this->isExternalAsset($value)) {
+							$assets[$key] = $value . $versionSuffix;
+						}
+					}
+				}
+			}
+		}
+	}
+
+	protected function minify(array &$assets, string $type) {
+		// Separate out the external assets so we can include them separately (they cannot be minified)
+		$externalAssets = $this->separateExternalAssets($assets);
+
+		// Determine whether to minify + merge or just minify
+		if($this->merge) {
+			$assets = [$this->minifyAssets($assets, $type)];
+		}
+		else {
+			foreach($assets as $key => $value) {
+				$assets[$key] = $this->minifyAssets([$value], $type);
+			}
+		}
+
+		// Merge the external assets back into the minified/merged asset array
+		$assets = array_merge($externalAssets, $assets);
+	}
+
 	/**
 	 * Handles minification of an arbitrary array of js or css assets through the ProCache or AIOM (All In One Minify) module
-	 * @param Array $assets to be minified
+	 * @param Array $assets to be minified and merged
 	 * @param String $type 'js' | 'css'
 	 */
- 	protected function minifyAssets($assets, $type) {
-		$output = array();
-		$count = count($assets);
-
-		if (!$count) return $assets;
+	protected function minifyAssets($assets, $type) {
 
 		// Remove templates path from beginning of file name, since ProCache and AIOM expects a templates-relative path
 		foreach($assets as $key => $val)
@@ -265,58 +348,8 @@ abstract class Ui extends Wire {
 				$minifiedPath = '';
 		}
 
-		$output[] = $minifiedPath;
+		return $minifiedPath;
 
-		return $output;
-
-	}
-
-	/**
-	 * @return Array of assets with absolute paths (cannot be minified)
-	 */
-	protected function getExternalAssets($array, $location) {
-		$output = array();
-
-		foreach ($array as $key => $val) {
-			if (!in_array($location, array('headScripts', 'footScripts', 'styles')))
-				return;
-
-			if (strpos($val, 'http://') !== false || strpos($val, 'https://') !== false) {
-				if (gettype($val) === 'string')
-					$output[] = $val;
-			}
-		}
-
-		return $output;
-	}
-
-	/**
-	 * Passes all local scripts and styles to the global assets arrays for inclusion in the html
-	 */
-	protected function passAssets() {
-		$this->uiBlocks->headScripts = array_unique(array_merge($this->uiBlocks->headScripts, $this->headScripts));
-		$this->uiBlocks->footScripts = array_unique(array_merge($this->uiBlocks->footScripts, $this->footScripts));
-		$this->uiBlocks->styles      = array_unique(array_merge($this->uiBlocks->styles,      $this->styles));
-	}
-
-	protected function minify() {
-		// Separate out the external assets so we can include them separately (they cannot be minified)
-		$headScriptsExternal = $this->getExternalAssets( $this->headScripts, 'headScripts' );
-		$footScriptsExternal = $this->getExternalAssets( $this->footScripts, 'footScripts' );
-		$stylesExternal      = $this->getExternalAssets( $this->styles,      'styles'      );
-
-		$headScriptsToMin = array_diff($this->headScripts, $headScriptsExternal);
-		$footScriptsToMin = array_diff($this->footScripts, $footScriptsExternal);
-		$stylesToMin = array_diff($this->styles, $stylesExternal);
-
-		$headScriptsMin = $this->minifyAssets( $headScriptsToMin, 'js'  );
-		$footScriptsMin = $this->minifyAssets( $footScriptsToMin, 'js'  );
-		$stylesMin      = $this->minifyAssets( $stylesToMin,      'css' );
-
-		// Update the asset arrays
-		$this->headScripts = array_merge($headScriptsExternal, $headScriptsMin);
-		$this->footScripts = array_merge($footScriptsExternal, $footScriptsMin);
-		$this->styles = array_merge($stylesExternal, $stylesMin);
 	}
 
 	/**

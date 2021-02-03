@@ -5,8 +5,11 @@ class UiBlocks extends WireData implements Module
 	/**
 	 * Configurable properties
 	 */
-	public $useFootScripts = false; // Use the footScripts array instead of the headScripts array for autoloading JS assets
+	public $manageAssets = true; // Set false to bypass all JS/CSS asset management/autoloading done by UI Blocks. If you disable this, you will have to manually include the scripts for each UI Block that you use.
+	public $useFootScripts = false; // Use the footScripts as the default array instead of the headScripts when autoloading JS assets
 	public $ajaxSessionWrite = true; // Set to false if you don't need to use session write during ajax requests. This will greatly increase the speed of concurrent ajax requests. You can also turn write on and off on a per request basis by adding sessionWrite=1 or sessionWrite=0 to your post or get request parameters. See __construct() below for more information.
+	public $minify = true; // If a minification module (ProCache or AIOM) is installed, this will minify assets by default
+	public $merge = false; // Should all CSS and JS files for each UI Block be merged into a single CSS and JS file for each block by default? Recommended: true on the root block (Layout) and false on all others
 
 	/**
 	 * Reserved properties, managed internally
@@ -14,17 +17,19 @@ class UiBlocks extends WireData implements Module
 	public $headScripts = []; // Holds JS assets for use in the html head section
 	public $footScripts = []; // Holds JS assets for use in the html footer
 	public $styles = []; // Holds CSS assets
+	public $rawAssets = []; // An array of the original paths to all JS/CSS assets in use (before minification/bundling). This is for internal use only, to avoid including the same asset more than once.
 	public $ajaxRequestUrl; // The requested url, without the ajax or ui get parameters (for ajax calls)
 	public $currentUiPath = []; // Stores the path to the UI block that is currently executing
 	public $checkPath = true; // We switch this off once we hit the target UI so that the ajax method we hit can still render additional sub-blocks
 	public $proCache; // Holds reference to procache module if installed
 	public $aiom; // Holds reference to AIOM module if installed
+	public $registry = []; // An array of the unique Ui Blocks currently in use
 
 	public static function getModuleInfo()
 	{
 		return array(
 			'title' => 'UI Blocks',
-			'version' => '1.1.9',
+			'version' => '1.2',
 			'summary' => 'A component-based framework for building modular, nestable graphical user interfaces in ProcessWire using MVC principals. Similar to Vue or React components, but server-side.',
 			'singular' => true,
 			'autoload' => true,
@@ -196,6 +201,10 @@ class UiBlocks extends WireData implements Module
 		return $out;
 	}
 
+	public function inAssets(string $assetUrl) {
+		return in_array($assetUrl, $this->rawAssets);
+	}
+
 	/**
 	 * Right now all this does is to initialize an unused UI block object for purposes of running through its constructor and setup functions, which causes its JS and CSS assets to be loaded into the master asset arrays.
 	 *
@@ -212,6 +221,22 @@ class UiBlocks extends WireData implements Module
 			$uiName = '\\ProcessWire\\' . $uiName;
 			new $uiName();
 		}
+	}
+
+	/**
+	 * Add a UiBlock to the list of blocks currently in use
+	 * Internal use only.
+	 *
+	 * @param $uiName
+	 */
+	public function addToRegistry(string $uiName) {
+		if(!in_array($uiName, $this->registry)) {
+			$this->registry[] = $uiName;
+		}
+	}
+
+	public function isRegistered(string $uiName) {
+		return in_array($uiName, $this->registry);
 	}
 
 	public function install() {}

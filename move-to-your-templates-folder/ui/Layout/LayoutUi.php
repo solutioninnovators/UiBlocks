@@ -6,6 +6,7 @@ class LayoutUi extends Ui {
 	public $id = 'layout'; // A unique identifier for this block (used for ajax calls)
 	public $browserTitle = '';
 	public $wrapper = false; // Don't wrap the root layout UI block in a div
+	public $merge = true; // Merge assets (if ProCache or AIOM installed)
 
 	// Content Regions
 	public $main = '';
