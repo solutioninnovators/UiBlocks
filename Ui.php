@@ -48,6 +48,7 @@ abstract class Ui extends Wire {
 	public $uiPathString; // The above uiPath in string format (e.g. layout.store.cart)
 	public $depth; // Integer value representing how many blocks deep this block is in the current block hierarchy
 	protected $uiBlocks; // holds reference to the UiBlocks module
+	protected $uiProcessed = false; // Has the process() or render() method been called?
 
 
 	function __construct(array $options = null) {
@@ -66,9 +67,7 @@ abstract class Ui extends Wire {
 		$this->url = $this->getUrl();
 		$this->uiName = $this->getUiName();
 
-		$this->view = new TemplateFile();
-		$viewFileName = $this->path . $this->uiName . '.php';
-		if(file_exists($viewFileName)) $this->view->setFilename($viewFileName); // Load the default view file for this controller, which is expected to be in the same folder as the controller file
+		$this->view = new TemplateFile(); // Setup a view file so the controller can set variables to it
 
 		$this->setup();
 
@@ -354,6 +353,8 @@ abstract class Ui extends Wire {
 
 	/**
 	 * Child classes put their code in here. This is the main method, called when the UI block is rendered.
+	 * You may optionally return an associative array of variables to pass to the view.
+	 * If your block is executed using process() instead of render() (does not return a rendered view file), you may return any value you wish.
 	 */
 	protected function run() {}
 
@@ -366,7 +367,7 @@ abstract class Ui extends Wire {
 	/**
 	 * @return string to include before the contents of the view (feel free to override in subclasses)
 	 */
-	protected function header() {
+	protected function getWrapperHeader() {
 		$name = $this->getUiName();
 		$id = $this->sanitizer->entities1($this->id);
 		$uiId = empty($id) ? '' : "ui_$id";
@@ -390,38 +391,24 @@ abstract class Ui extends Wire {
 	/**
 	 * @return string to include after the contents of the view (feel free to override in subclasses)
 	 */
-	protected function footer() {
+	protected function getWrapperFooter() {
 		return "</div>";
-	}
-
-	/**
-	 * Runs the controller, passes variables to the view and calls render() on it
-	 * @return string output from view TemplateFile
-	 */
-	protected function renderView() {
-		$result = $this->run(); // Run the controller
-
-		// If the run method returned an associative array of variables, we pass them to the view
-		if(is_array($result)) {
-			foreach($result as $key => $value) {
-				$this->view->set($key, $value);
-			}
-		}
-
-		$this->view->ui = $this; // Pass the UI object to the view
-		$this->passPropertiesToView();
-
-		$output = '';
-		if($this->wrapper) $output .= $this->header();
-		$output .= $this->view->render();
-		if($this->wrapper) $output .= $this->footer();
-		return $output;
 	}
 
 	/**
 	 * Called by the client to run the user interface controller logic and output its markup (or ajax array, if this is an ajax call)
 	 */
-	public function render() {
+	final public function render() {
+		return $this->process(true);
+	}
+
+	/**
+	 * Determines how to process this block based on the type of request (ajax, action, or regular page view) and its position in the block hierarchy. Typically you would call render() instead, which simply calls this method with the renderView parameter set to true.
+	 * @throws WireException
+	 */
+	final public function process($renderView = false) {
+		if($this->uiProcessed === true) throw new WireException('You can only call process() or render() once per UI Block.');
+
 		if($this->debug === null) $this->debug = $this->config->debug; // If debug mode is not set, use PW's global debug setting
 
 		$this->uiPath = $this->uiBlocks->currentUiPath;
@@ -430,18 +417,22 @@ abstract class Ui extends Wire {
 		$this->uiBlocks->currentUiPath = $this->uiPath;
 		$this->uiPathString = implode('.', $this->uiPath);
 
+		// See if we can skip processing this block
 		if($this->uiBlocks->checkPath && (($this->requestIsAjax() || $this->requestIsAction()) && !$this->isInUiPath())) {
+			//if(!$this->input->ui) throw new WireException('Missing UI path. Does your block have a wrapper?');
 			//echo "skipped {$this->id} at depth {$this->depth} | ";
-			array_pop($this->uiBlocks->currentUiPath);
+			array_pop($this->uiBlocks->currentUiPath); // Remove this block from the current UI Path since we're done with it
 			return; // Do not run this block if this is an ajax request and the block is not in the ajax path
 		}
+		// Process the block
 		else {
+			// Process an AJAX or Action request
 			if(($this->requestIsAjax() || $this->requestIsAction()) && $this->isTargetBlock()) {
 				if($this->uiBlocks->checkPath && !$this->isInUiPath()) {
 					throw new WireException('Invalid UI path.');
 				}
 
-				$this->uiBlocks->checkPath = false; // Since we hit the target block & method, blocks we render from here should not have their paths checked
+				$this->uiBlocks->checkPath = false; // Since we hit the target block & method, blocks we process/render from here should not have their paths checked
 
 				if($this->requestIsAjax()) {
 					$method = 'ajax_' . $this->input->ajax;
@@ -494,14 +485,21 @@ abstract class Ui extends Wire {
 					}
 				}
 			}
-			else { // Render the view
-				//echo "rendered {$this->id} at depth {$this->depth} | ";
-				$output = $this->renderView();
-				$this->end();
+			// Execute the run() method for a normal page view request
+			else {
+				if($renderView) {
+					//echo "rendered {$this->id} at depth {$this->depth} | ";
+					$return = $this->renderView();
+				}
+				else {
+					$return = $this->run(); // Just run the controller
+				}
 
-				array_pop($this->uiBlocks->currentUiPath);
+				array_pop($this->uiBlocks->currentUiPath); // Remove this block from the current UI Path since we're done with it
 
-				return $output;
+				$this->uiProcessed = true;
+
+				return $return;
 			}
 		}
 	}
@@ -509,8 +507,39 @@ abstract class Ui extends Wire {
 	/**
 	 * Alias for render()
 	 */
-	public function output() {
+	final public function output() {
 		return $this->render();
+	}
+
+	/**
+	 * Sets up the view, passes variables to it and calls render() on it
+	 * @return string output from view TemplateFile
+	 */
+	protected function renderView() {
+		$result = $this->run(); // Run the controller
+
+		// If the run method returned an associative array of variables, we pass them to the view
+		if(is_array($result)) {
+			foreach($result as $key => $value) {
+				$this->view->set($key, $value);
+			}
+		}
+
+		$this->view->ui = $this; // Pass the UI object to the view
+		$this->passPropertiesToView();
+
+		// Load the default view file for this controller, which is expected to be in the same folder as the controller file
+		$viewFileName = $this->path . $this->uiName . '.php';
+		if(file_exists($viewFileName)) $this->view->setFilename($viewFileName);
+
+		$output = '';
+		if($this->wrapper) $output .= $this->getWrapperHeader();
+		$output .= $this->view->render();
+		if($this->wrapper) $output .= $this->getWrapperFooter();
+
+		$this->end(); // Execute any post-view logic
+
+		return $output;
 	}
 
 	/**
