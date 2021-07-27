@@ -71,7 +71,7 @@ abstract class Ui extends Wire {
 
 		$this->setup();
 
-		if(!$this->uiBlocks->manageAssets || $this->requestIsAjax() || $this->requestIsAction()) {
+		if(!$this->uiBlocks->manageAssets) {
 			// No need to deal with assets if this is ajax or an action request, or if we've disabled asset autoloading completely
 		}
 		else {
@@ -79,9 +79,9 @@ abstract class Ui extends Wire {
 				$this->autoIncludeAssets();
 			}
 			$this->passAssets();
-		}
 
-		$this->uiBlocks->addToRegistry($this->uiName);
+			$this->uiBlocks->addToRegistry($this->uiName); // Only add to registry if managing assets (this way if manageAssets is enabled later on a block that was already used, it will still load the assets)
+		}
 	}
 
 	/**
@@ -571,7 +571,7 @@ abstract class Ui extends Wire {
 	 * @return bool
 	 */
 	protected function requestIsAjax() {
-		return $this->input->ajax && $this->input->ui && ($this->config->ajax || $this->debug === true);
+		return $this->uiBlocks->requestIsAjax() && ($this->config->ajax || $this->debug === true);
 	}
 
 	/**
@@ -582,7 +582,7 @@ abstract class Ui extends Wire {
 	 * @return bool
 	 */
 	protected function requestIsAction() {
-		return $_SERVER['REQUEST_METHOD'] == 'POST' && $this->input->post->ui && $this->input->post->action;
+		return $this->uiBlocks->requestIsAction();
 	}
 
 	/**

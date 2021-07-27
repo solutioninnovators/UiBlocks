@@ -29,7 +29,7 @@ class UiBlocks extends WireData implements Module
 	{
 		return array(
 			'title' => 'UI Blocks',
-			'version' => '1.3',
+			'version' => '1.4',
 			'summary' => 'A component-based framework for building modular, nestable graphical user interfaces in ProcessWire using MVC principals. Similar to Vue or React components, but server-side.',
 			'singular' => true,
 			'autoload' => true,
@@ -75,6 +75,14 @@ class UiBlocks extends WireData implements Module
 		}
 		if($this->modules->isInstalled('AllInOneMinify')) {
 			$this->aiom = $this->modules->get("AllInOneMinify");
+		}
+
+		/**
+		 * If this is an ajax request or an action, we disable asset management / autoloading by default
+		 * You can still enable it if needed by explicitly setting $modules-UiBlocks->manageAssets = true at the beginning of your script
+		 */
+		if($this->requestIsAjax() || $this->requestIsAction()) {
+			$this->manageAssets = false;
 		}
 
 		/**
@@ -148,6 +156,26 @@ class UiBlocks extends WireData implements Module
 	}
 
 	/**
+	 * Is this an ajax request?
+	 *
+	 * @return bool
+	 */
+	public function requestIsAjax() {
+		return $this->input->ajax && $this->input->ui;
+	}
+
+	/**
+	 * Is this an action request?
+	 * Actions are non-ajax post requests that include a specific UI path and function name.
+	 * They provide the efficiency of an ajax request but end in a redirect rather than returning markup or JSON
+	 *
+	 * @return bool
+	 */
+	public function requestIsAction() {
+		return $_SERVER['REQUEST_METHOD'] === 'POST' && $this->input->post->ui && $this->input->post->action;
+	}
+
+	/**
 	 * For ajax and action requests
 	 * @return string|false ID of the UI Block that has been requested at the current depth/level, or false if no block was requested at this level
 	 */
@@ -177,25 +205,34 @@ class UiBlocks extends WireData implements Module
 	 * @return Handy functions for outputting assets in your markup
 	 */
 
-	public function headScripts() {
+	public function headScripts($useHttpUrls = false) {
 		$out = '';
 		foreach($this->headScripts as $file) {
+			if($useHttpUrls && substr($file, 0, 1) === '/')
+				$file = substr($this->urls->httpRoot, 0, -strlen($this->urls->root)) . $file;
+
 			$out .= "<script src=\"$file\"></script> \r\n";
 		}
 		return $out;
 	}
 
-	public function footScripts() {
+	public function footScripts($useHttpUrls = false) {
 		$out = '';
 		foreach($this->footScripts as $file) {
+			if($useHttpUrls && substr($file, 0, 1) === '/')
+				$file = substr($this->urls->httpRoot, 0, -strlen($this->urls->root)) . $file;
+
 			$out .= "<script src=\"$file\"></script> \r\n";
 		}
 		return $out;
 	}
 
-	public function styles() {
+	public function styles($useHttpUrls = false) {
 		$out = '';
 		foreach($this->styles as $file) {
+			if($useHttpUrls && substr($file, 0, 1) === '/')
+				$file = substr($this->urls->httpRoot, 0, -strlen($this->urls->root)) . $file;
+
 			$out .= "<link rel=\"stylesheet\" href=\"$file\" /> \r\n";
 		}
 		return $out;

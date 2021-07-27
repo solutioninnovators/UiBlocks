@@ -20,6 +20,7 @@ var UiBlocks = {
 	 * @param animate - Whether the loading transition should be animated. boolean true|false
 	 * @returns promise
 	 * @todo: store and make sure the id gets added back to the reloaded ui if it doesn't exist?
+	 * @todo: Update to support options array in place of extraParams, like Ui.jquery.js
 	 */
 	reload: function(ui, extraParams, alternateUrl, animate) {
 		var ui = ui instanceof jQuery ? ui[0] : ui; // Convert jQuery objects to plain js elements
@@ -78,6 +79,7 @@ var UiBlocks = {
 	 * @param method - Whether to submit the data as "post" or "get" (default: "post")
 	 * @param alternateUrl - Optionally specify an entirely different url (other than the current) to submit to. By default, the current url with all query parameters will be used, which is almost always what you want.
      * @returns promise
+	 * @todo: Update to support options array in place of extraParams, like Ui.jquery.js
      */
 	ajax: function(ui, ajaxFunctionName, extraParams, method, alternateUrl) {
 		var ui = ui instanceof jQuery ? ui[0] : ui; // Convert jQuery objects to plain js elements
