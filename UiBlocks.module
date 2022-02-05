@@ -172,7 +172,8 @@ class UiBlocks extends WireData implements Module
 	 * @return bool
 	 */
 	public function requestIsAction() {
-		return $_SERVER['REQUEST_METHOD'] === 'POST' && $this->input->post->ui && $this->input->post->action;
+		$requestMethod = $_SERVER['REQUEST_METHOD'] ?? null;
+		return $requestMethod && $this->input->post->ui && $this->input->post->action;
 	}
 
 	/**
