@@ -442,7 +442,8 @@ abstract class Ui extends Wire {
 				}
 
 				if(!method_exists($this, $method)) {
-					throw new WireException("The method $method does not exist on the requested UI Block.");
+					$uiName = $this->id ?: $this->getUiName();
+					throw new WireException("The method $method does not exist on the requested UI Block ($uiName).");
 				}
 				else {
 					// Pass the relevant input variables to the function we're calling
