@@ -147,7 +147,7 @@ abstract class Ui extends Wire {
 		}
 
 		$path = $className ? $this->getPath($className) : $this->getPath();
-		$pathAfterTemplatesFolder = str_replace($this->config->paths->templates, '', $path);
+		$pathAfterTemplatesFolder = str_ireplace($this->config->paths->templates, '', $path);
 		return $this->config->urls->templates . $pathAfterTemplatesFolder;
 	}
 
