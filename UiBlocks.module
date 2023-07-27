@@ -19,6 +19,7 @@ class UiBlocks extends WireData implements Module
 	public $styles = []; // Holds CSS assets
 	public $rawAssets = []; // An array of the original paths to all JS/CSS assets in use (before minification/bundling). This is for internal use only, to avoid including the same asset more than once.
 	public $ajaxRequestUrl; // The requested url, without the ajax or ui get parameters (for ajax calls)
+	public $requestedUiPath = []; // Stores the full UI path being requested (applies only to actions and ajax calls)
 	public $currentUiPath = []; // Stores the path to the UI block that is currently executing
 	public $checkPath = true; // We switch this off once we hit the target UI so that the ajax method we hit can still render additional sub-blocks
 	public $proCache; // Holds reference to procache module if installed
@@ -83,6 +84,16 @@ class UiBlocks extends WireData implements Module
 		 */
 		if($this->requestIsAjax() || $this->requestIsAction()) {
 			$this->manageAssets = false;
+			$this->requestedUiPath = explode('.', $this->input->ui);
+
+			// If this was an ajax request and it finished successfully but without the requested block being found, output a json response to that effect
+			if($this->requestIsAjax()) {
+				Wire::addHookAfter('ProcessPageView::finished', function() {
+					header('Content-type: application/json', null, 404);
+					echo json_encode(['message' => 'The requested UI Block could not be located.', 'status' => 404]);
+					exit;
+				});
+			}
 		}
 
 		/**
@@ -182,11 +193,9 @@ class UiBlocks extends WireData implements Module
 	 */
 	public function uiRequestedAtCurrentDepth() {
 		$depth = count($this->currentUiPath);
-		$ajaxPath = explode('.', $this->input->ui);
+		if(count($this->requestedUiPath) < $depth) return false;
 
-		if(count($ajaxPath) < $depth) return false;
-
-		return $ajaxPath[$depth - 1];
+		return $this->requestedUiPath[$depth - 1];
 	}
 
 	/**
@@ -282,3 +291,5 @@ class UiBlocks extends WireData implements Module
 	public function uninstall() {}
 
 }
+
+class PublicException extends \Exception {}

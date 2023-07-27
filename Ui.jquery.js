@@ -58,7 +58,7 @@ var UiBlocks = {
 
 		var result = UiBlocks.ajax(ui, 'reload', options.extraParams, 'get', options.alternateUrl);
 
-		result.then(function (data) {
+		result.then(function(data) {
 			if(reloadRequestTime == $ui.attr('data-ui-last-reload-request')) {
 				// Update view
 				var $newView = $(data.view);
@@ -77,8 +77,30 @@ var UiBlocks = {
 				console.log('AJAX response ignored because it was obsolete.');
 			}
 		},
-		function (xhr, textStatus, errorThrown) {
-			console.log('Error: ' + textStatus + ' ' + errorThrown); // Log error in console
+		function(xhr, textStatus, errorThrown) {
+			// If a 404 error occurred, just empty out the contents of the block and leave the wrapper.
+			if(xhr.status == 404) {
+				console.log('Could not locate UI Block during reload. It may no longer be present on the page.')
+				$ui.empty();
+			}
+			// Otherwise, just stop the reload and leave the old data.
+			else {
+				console.log('Reload request failed.')
+				if (xhr.responseText) {
+					console.log(JSON.parse(xhr.responseText).message)
+				}
+			}
+
+			if (options.animate) {
+				$ui.css({opacity: 0.5, 'pointer-events': 'initial'}).animate({opacity: 1}, 300);
+			}
+			if (options.animate == 'spinner') {
+				$ui.find('.ui-spinner').fadeOut();
+			}
+
+			$(window).trigger('resize'); // Allow other js listening to the resize event to recalculate in case the layout has changed
+			$ui.trigger('ui-reloaded'); // Trigger a reloaded event when the ui is reloaded
+			$ui.trigger('reloaded'); // Trigger a reloaded event when the ui is reloaded @deprecated
 		});
 
 		return result;
@@ -100,10 +122,12 @@ var UiBlocks = {
      * @returns promise
      */
 	ajax: function(ui, ajaxFunctionName, extraParams, method, alternateUrl) {
+		var $ui = ui instanceof jQuery ? ui : $(ui);
+
 		var defaultOptions = {
 			extraParams: undefined,
 			method: 'post',
-			alternateUrl: undefined,
+			alternateUrl: $ui.closest('.ui[data-ui-url]').attr('data-ui-url'), // Use url from the closest UI block with the data-ui-url attribute set, otherwise use current page url todo: Ui.js needs this feature added as well
 		};
 
 		// Determine if the extraParams parameter is actually an options object by checking if one of its keys is in defaultOptions
@@ -121,8 +145,6 @@ var UiBlocks = {
 		if(method !== undefined) options.method = method;
 		if(alternateUrl !== undefined) options.alternateUrl = alternateUrl;
 
-		var $ui = ui instanceof jQuery ? ui : $(ui);
-
 		if (!options.extraParams) options.extraParams = '';
 
 		if (typeof options.extraParams === 'object') {
@@ -138,6 +160,12 @@ var UiBlocks = {
 			url: options.alternateUrl,
 			dataType: 'json',
 			data: "ui=" + $ui.attr('data-ui-path') + "&ajax=" + ajaxFunctionName + options.extraParams
+		})
+		.fail(function(xhr, textStatus, errorThrown) {
+			console.log('AJAX request failed.')
+			if(xhr.responseText) {
+				console.log(JSON.parse(xhr.responseText).message)
+			}
 		});
 	},
 

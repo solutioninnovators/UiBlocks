@@ -31,9 +31,11 @@ abstract class Ui extends Wire {
 	public $minify; // Should assets be minified? (defaults to setting in UiBlocks.module)
 	public $merge; // Should assets be merged? (defaults to setting in UiBlocks.module)
 	public $wrapper = true; // Enable/disable the header and footer markup surrounding the block
+	public $wrapperEl = 'div'; // Element that the UI wrapper uses. For example, you might need to change this to a 'tr' for a table row
 	public $wrapperAttributes = []; // Associative array of attributes to add to the wrapper div
 	public $classes = ''; // Classes to add to the wrapper todo: Change to wrapperClasses?
 	public $debug; // Allows AJAX data to be output even if $config->ajax is false. May be used to switch on other debug data as needed. If not set, the value from PW's global $config->debug will be used
+	public $neverSkip = false; // Set to true if you need this block to be processed on an ajax or action request even when it's not part of the ui path. Normally we skip running these blocks for the sake of efficiency.
 
 
 	/**
@@ -49,6 +51,38 @@ abstract class Ui extends Wire {
 	public $depth; // Integer value representing how many blocks deep this block is in the current block hierarchy
 	protected $uiBlocks; // holds reference to the UiBlocks module
 	protected $uiProcessed = false; // Has the process() or render() method been called?
+
+	/**
+	 * Define the http actions that are valid along with their default http success and error codes
+	 */
+	protected $validActions = [
+		'get' => [
+			'successCode' => 200, // OK
+			'errorCode' => 400, // Bad Request
+		],
+		'post' => [
+			'successCode' => 201, // Created
+			'errorCode' => 400, // Bad Request
+		],
+		/*
+		'put' => [
+			'successCode' => 204, // OK, No Content to return
+			'errorCode' => 400, // Bad Request
+		],
+		'patch' => [
+			'successCode' => 200, // OK
+			'errorCode' => 400, // Bad Request
+		],
+		'delete' => [
+			'successCode' => 204, // OK, No Content to return
+			'errorCode' => 400, // Bad Request
+		],
+		'options' => [
+			'successCode' => 200, // OK
+			'errorCode' => 400, // Bad Request
+		]
+		*/
+	];
 
 
 	function __construct(array $options = null) {
@@ -370,6 +404,7 @@ abstract class Ui extends Wire {
 	protected function getWrapperHeader() {
 		$name = $this->getUiName();
 		$id = $this->sanitizer->entities1($this->id);
+		$el = $this->sanitizer->entities1($this->wrapperEl);
 		$uiId = empty($id) ? '' : "ui_$id";
 		$htmlId = empty($id) ? '' : "id='ui_$id'";
 		$path = $this->sanitizer->entities1($this->uiPathString);
@@ -385,14 +420,15 @@ abstract class Ui extends Wire {
 			$attributes .= $this->sanitizer->entities1($attrKey) . '="' . $this->sanitizer->entities1($attrValue) . '" ';
 		}
 
-		return "<div $htmlId class='ui ui_$name $uiId {$this->sanitizer->entities1($this->classes)}' data-ui-name='$name' data-ui-id='$id' data-ui-path='$path' $url $attributes>";
+		return "<$el $htmlId class='ui ui_$name $uiId {$this->sanitizer->entities1($this->classes)}' data-ui-name='$name' data-ui-id='$id' data-ui-path='$path' $url $attributes>";
 	}
 
 	/**
 	 * @return string to include after the contents of the view (feel free to override in subclasses)
 	 */
 	protected function getWrapperFooter() {
-		return "</div>";
+		$el = $this->sanitizer->entities1($this->wrapperEl);
+		return "</$el>";
 	}
 
 	/**
@@ -418,7 +454,7 @@ abstract class Ui extends Wire {
 		$this->uiPathString = implode('.', $this->uiPath);
 
 		// See if we can skip processing this block
-		if($this->uiBlocks->checkPath && (($this->requestIsAjax() || $this->requestIsAction()) && !$this->isInUiPath())) {
+		if($this->uiBlocks->checkPath && !$this->neverSkip && (($this->requestIsAjax() || $this->requestIsAction()) && !$this->isInUiPath())) {
 			//if(!$this->input->ui) throw new WireException('Missing UI path. Does your block have a wrapper?');
 			//echo "skipped {$this->id} at depth {$this->depth} | ";
 			array_pop($this->uiBlocks->currentUiPath); // Remove this block from the current UI Path since we're done with it
@@ -443,7 +479,13 @@ abstract class Ui extends Wire {
 
 				if(!method_exists($this, $method)) {
 					$uiName = $this->id ?: $this->getUiName();
-					throw new WireException("The method $method does not exist on the requested UI Block ($uiName).");
+					$errorStr = "The method $method does not exist on the requested UI Block ($uiName).";
+					if($this->requestIsAjax()) {
+						$this->sendResponse(['message' => $errorStr], 400);
+					}
+					else {
+						throw new WireException($errorStr);
+					}
 				}
 				else {
 					// Pass the relevant input variables to the function we're calling
@@ -453,23 +495,70 @@ abstract class Ui extends Wire {
 					unset($input['ajax']);
 					unset($input['action']);
 
-					// Call the function
-					$return = $this->$method($input);
+					if ($this->requestIsAjax()) { // AJAX Request
+						$httpMethod = strtolower($_SERVER["REQUEST_METHOD"]);
+						try {
+							// Call the function
+							$return = $this->$method($input);
 
-					if ($this->requestIsAjax()) {
-						// If a return value is given, it will replace or be merged with the ajax array
-						if ($return !== null) {
-							if (is_array($return)) {
-								$this->ajax = array_merge($this->ajax, $return);
+							// If a return value is given, it will replace or be merged with the ajax array
+							if($return !== null) {
+								if(is_array($return)) {
+									$this->ajax = array_merge($this->ajax, $return);
+								}
+								else {
+									$this->ajax = $return;
+								}
+							}
+
+							// If a status is provided in the response array, use it. Otherwise, use the default success code for the http action.
+							if(isset($this->ajax['status'])) {
+								$statusCode = $this->ajax['status'];
 							}
 							else {
-								$this->ajax = $return;
+								$statusCode = $this->validActions[$httpMethod]['successCode'];
+							}
+
+							$this->sendResponse($this->ajax, $statusCode);
+						}
+						// Catch all exceptions so we can handle them with a nice message in JSON format for our client
+						catch (\Throwable $e) {
+							if($e instanceof Wire404Exception) throw $e; // Rethrow 404s
+
+							// Handle ApiExceptions by returning the message directly to the user
+							if ($e instanceof UserException || $e instanceof ApiException) {
+								// If we returned a status code with the exception, use that. Otherwise fall back to the default error code for the http action.
+								$statusCode = $e->getCode() ?: $this->validActions[$httpMethod]['errorCode'];
+								$this->sendResponse(['message' => $e->getMessage()], $statusCode);
+
+								// Log the error
+								$logMessage = "HTTP $statusCode Error: {$e->getMessage()} (in {$e->getFile()} line {$e->getLine()})";
+								$this->wire('log')->save('ui-blocks-ajax-errors', $logMessage);
+							}
+							// Handle all other exceptions with a generic message (unless in debug mode), log the real message, and notify the adminEmail
+							else {
+								if ($this->wire('config')->debug) {
+									$message = $e->getMessage();
+								} else {
+									$message = 'The resource was found but an internal error occurred while processing the response.';
+								}
+								$this->sendResponse(['message' => $message], 500);
+
+								// Report the error to us and log it
+								$logMessage = "HTTP 500 Error: {$e->getMessage()} (in {$e->getFile()} line {$e->getLine()}) {$e->getTraceAsString()}";
+
+								if($this->wire('config')->adminEmail) {
+									wireMail($this->wire('config')->adminEmail, null, "UI BLocks AJAX Error Notification - {$this->wire('config')->httpHost}", $logMessage . " User: {$this->wire('user')->name} URL: {$this->wire('input')->url()}");
+								}
+								$this->wire('log')->save('ui-blocks-ajax-errors', $logMessage);
 							}
 						}
-
-						$this->outputAjax();
 					}
 					else { // This is an action request
+
+						// Call the function
+						$return = $this->$method($input);
+
 						// If a string is returned, we assume it's the url to redirect to
 						if (is_string($return)) {
 							$this->session->redirect($return);
@@ -544,16 +633,33 @@ abstract class Ui extends Wire {
 	}
 
 	/**
-	 * Directly outputs the UI's ajax data array in JSON format and halts further program execution (Used for AJAX calls)
+	 * Set the response header and output JSON to the browser (Used for AJAX calls)
+	 *
+	 * @param array $json
+	 * @param $httpStatusCode
 	 */
-	protected function outputAjax() {
+	protected function sendResponse(array $json, $httpStatusCode) {
+
 		// Before outputting our JSON, we remove any markup that may have already been sent to php output buffers (e.g. if the UI Block was embedded inside of a view instead of pre-rendered in the controller, or the layout is not itself a UI Block)
 		while (ob_get_level()) {
 			ob_end_clean();
 		}
 
-		header('Content-Type: application/json');
-		echo json_encode($this->ajax);
+		// If no status code was provided in the json body, we'll add it just for consistency. This way we can always get the response code from either the header or body.
+		if(!isset($json['status'])) {
+			$json['status'] = $httpStatusCode;
+		}
+
+		if(isset($json['contentType']) && $json['contentType'] == 'text/plain') {
+			header("HTTP/1.0 200 OK");
+			header($json['contentType'], null, $httpStatusCode);
+			echo $json['message'];
+		}
+		else {
+			header('Content-type: application/json', null, $httpStatusCode);
+			echo json_encode($json);
+		}
+
 		exit;
 	}
 
@@ -608,7 +714,7 @@ abstract class Ui extends Wire {
 	 * @return bool
 	 */
 	protected function isTargetBlock() {
-		return count(explode('.', $this->input->ui)) === $this->depth;
+		return count($this->uiBlocks->requestedUiPath) === $this->depth && $this->isInUiPath();
 	}
 
 	/**
