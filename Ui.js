@@ -141,11 +141,13 @@ var UiBlocks = {
 	    var timer = null;
 	    return function (event) {
 	        // This prevents the tab and arrow keys from triggering keyup
-	        var code = event.which;
-	        // keycode 9 = tab, 37-40 = arrow keys
-	        if(code == 9 || code == 37 || code == 38 || code == 39 || code == 40) {
-	            return;
-	        }
+			if(event) {
+				var code = event.which;
+				// keycode 9 = tab, 37-40 = arrow keys
+				if(code == 9 || code == 37 || code == 38 || code == 39 || code == 40) {
+					return;
+				}
+			}
 
 	        var context = this, args = arguments;
 	        clearTimeout(timer);

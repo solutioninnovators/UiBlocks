@@ -37,6 +37,9 @@ var UiBlocks = {
 		if(alternateUrl !== undefined) options.alternateUrl = alternateUrl;
 		if(animate !== undefined) options.animate = animate;
 
+		if (typeof ui === 'string' && !ui.match(/^(\.|\#|\[)/)) {
+			ui = '.ui_' + ui;
+		}
 		var $ui = ui instanceof jQuery ? ui : $(ui);
 
 		$ui.trigger('ui-reloading'); // Trigger an event when the ui begins reload
@@ -122,6 +125,9 @@ var UiBlocks = {
      * @returns promise
      */
 	ajax: function(ui, ajaxFunctionName, extraParams, method, alternateUrl) {
+		if (typeof ui === 'string' && !ui.match(/^(\.|\#|\[)/)) {
+			ui = '.ui_' + ui;
+		}
 		var $ui = ui instanceof jQuery ? ui : $(ui);
 
 		var defaultOptions = {
@@ -177,11 +183,13 @@ var UiBlocks = {
 	    var timer = null;
 	    return function (event) {
 	        // This prevents the tab and arrow keys from triggering keyup
+			if(event) {
 	        var code = event.which;
 	        // keycode 9 = tab, 37-40 = arrow keys
 	        if(code == 9 || code == 37 || code == 38 || code == 39 || code == 40) {
 	            return;
 	        }
+			}
 
 	        var context = this, args = arguments;
 	        clearTimeout(timer);

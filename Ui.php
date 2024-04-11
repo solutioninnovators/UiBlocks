@@ -1,4 +1,6 @@
 <?php namespace ProcessWire;
+#[\AllowDynamicProperties]
+
 /**
  * Class UI is the base class for all user interfaces. This file is the equivalent of the "controller" in traditional MVC (Model-View-Controller) lingo.
  *
@@ -33,7 +35,7 @@ abstract class Ui extends Wire {
 	public $wrapper = true; // Enable/disable the header and footer markup surrounding the block
 	public $wrapperEl = 'div'; // Element that the UI wrapper uses. For example, you might need to change this to a 'tr' for a table row
 	public $wrapperAttributes = []; // Associative array of attributes to add to the wrapper div
-	public $classes = ''; // Classes to add to the wrapper todo: Change to wrapperClasses?
+	// public $classes = ''; // Classes to add to the wrapper. This is commented out so that classes extending FieldUi can use callback functions to define this property.
 	public $debug; // Allows AJAX data to be output even if $config->ajax is false. May be used to switch on other debug data as needed. If not set, the value from PW's global $config->debug will be used
 	public $neverSkip = false; // Set to true if you need this block to be processed on an ajax or action request even when it's not part of the ui path. Normally we skip running these blocks for the sake of efficiency.
 
@@ -525,8 +527,8 @@ abstract class Ui extends Wire {
 						catch (\Throwable $e) {
 							if($e instanceof Wire404Exception) throw $e; // Rethrow 404s
 
-							// Handle ApiExceptions by returning the message directly to the user
-							if ($e instanceof UserException || $e instanceof ApiException) {
+							// Handle PublicExceptions/ApiExceptions by returning the message directly to the user
+							if ($e instanceof PublicException || $e instanceof ApiException) {
 								// If we returned a status code with the exception, use that. Otherwise fall back to the default error code for the http action.
 								$statusCode = $e->getCode() ?: $this->validActions[$httpMethod]['errorCode'];
 								$this->sendResponse(['message' => $e->getMessage()], $statusCode);
@@ -538,7 +540,7 @@ abstract class Ui extends Wire {
 							// Handle all other exceptions with a generic message (unless in debug mode), log the real message, and notify the adminEmail
 							else {
 								if ($this->wire('config')->debug) {
-									$message = $e->getMessage();
+									$message = "{$e->getMessage()} (in {$e->getFile()} line {$e->getLine()}) {$e->getTraceAsString()}";
 								} else {
 									$message = 'The resource was found but an internal error occurred while processing the response.';
 								}
@@ -656,7 +658,7 @@ abstract class Ui extends Wire {
 			echo $json['message'];
 		}
 		else {
-			header('Content-type: application/json', null, $httpStatusCode);
+			header('Content-type: application/json', '', $httpStatusCode);
 			echo json_encode($json);
 		}
 
